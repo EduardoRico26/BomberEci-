@@ -728,3 +728,274 @@ Feature: Resumen inteligente de partida
 | Won't | 1 | — |
 | **Total** | **17** | **92** |
 
+
+---
+
+## Escenarios de Atributos de Calidad
+
+Los escenarios de calidad están compuestos por 6 partes: **Fuente de estímulo → Estímulo → Artefacto → Entorno → Respuesta → Medida de respuesta**. Cada escenario define tres niveles de cumplimiento: Mínimo, Objetivo y Excepcional.
+
+---
+
+### EAC-01 — Rendimiento: Sincronización de movimiento en tiempo real
+
+"Un jugador activo en una partida realiza un movimiento durante una sesión con 6 jugadores conectados en operación normal. El servidor procesa el evento y sincroniza la nueva posición en todos los clientes conectados."
+
+| Parte | Descripción |
+|---|---|
+| **Fuente de estímulo** | Jugador humano |
+| **Estímulo** | Presiona una tecla de movimiento |
+| **Artefacto** | Game Engine + canal WebSocket |
+| **Entorno** | Operación normal con 6 jugadores conectados |
+| **Respuesta** | El servidor procesa el movimiento y hace broadcast a todos los clientes |
+| **Medida de respuesta** | Latencia de procesamiento y sincronización entre clientes |
+
+| Nivel | Valor |
+|---|---|
+| **Mínimo** | Latencia ≤ 200ms |
+| **Objetivo** | Latencia ≤ 100ms |
+| **Excepcional** | Latencia ≤ 50ms |
+
+**HU relacionada:** HU-05 — Movimiento en tiempo real
+
+---
+
+### EAC-02 — Rendimiento: Procesamiento bajo carga concurrente
+
+"El sistema tiene 10 salas activas simultáneamente, cada una con 6 jugadores, mientras múltiples bombas explotan en diferentes salas al mismo tiempo. El servidor debe procesar todos los eventos sin degradar la experiencia de ningún jugador."
+
+| Parte | Descripción |
+|---|---|
+| **Fuente de estímulo** | Múltiples jugadores en salas distintas |
+| **Estímulo** | Explosiones simultáneas ocurriendo en diferentes salas al mismo tiempo |
+| **Artefacto** | Game Room Manager + Game Engine |
+| **Entorno** | Sobrecarga: 10 salas activas con 6 jugadores cada una |
+| **Respuesta** | El servidor procesa todos los eventos de forma independiente por sala sin que una afecte a otra |
+| **Medida de respuesta** | Tiempo de procesamiento de eventos bajo carga máxima |
+
+| Nivel | Valor |
+|---|---|
+| **Mínimo** | Procesa todos los eventos en ≤ 500ms bajo carga máxima |
+| **Objetivo** | Procesa todos los eventos en ≤ 200ms bajo carga máxima |
+| **Excepcional** | Procesa todos los eventos en ≤ 100ms bajo carga máxima |
+
+**HU relacionada:** HU-06 — Bombas y explosiones en tiempo real | HU-03 — Crear sala de juego
+
+---
+
+### EAC-03 — Disponibilidad: Tolerancia a desconexión de jugador
+
+"Un jugador pierde su conexión a internet de forma inesperada durante una partida activa en operación normal. El sistema debe mantener la partida en curso para los demás jugadores y permitir la reconexión sin pérdida de estado."
+
+| Parte | Descripción |
+|---|---|
+| **Fuente de estímulo** | Jugador humano (fallo de red) |
+| **Estímulo** | Desconexión inesperada durante la partida |
+| **Artefacto** | Game Room Manager + servidor WebSocket |
+| **Entorno** | Operación normal con partida activa |
+| **Respuesta** | El sistema congela el personaje en su última posición conocida, notifica a los demás jugadores y abre una ventana de reconexión |
+| **Medida de respuesta** | Tiempo máximo de reconexión sin pérdida de partida |
+
+| Nivel | Valor |
+|---|---|
+| **Mínimo** | El jugador puede reconectarse en ≤ 60 segundos |
+| **Objetivo** | El jugador puede reconectarse en ≤ 30 segundos |
+| **Excepcional** | El jugador puede reconectarse en ≤ 15 segundos sin percibir interrupción |
+
+**HU relacionada:** HU-05 — Movimiento en tiempo real
+
+---
+
+### EAC-04 — Seguridad: Protección contra intentos de acceso no autorizado
+
+"Un usuario desconocido intenta acceder al sistema realizando múltiples intentos de login con credenciales incorrectas desde la misma IP en operación normal. El sistema debe detectar el comportamiento sospechoso y proteger las cuentas registradas."
+
+| Parte | Descripción |
+|---|---|
+| **Fuente de estímulo** | Usuario desconocido / atacante externo |
+| **Estímulo** | Múltiples intentos fallidos de inicio de sesión consecutivos |
+| **Artefacto** | Auth Service (pantalla de login) |
+| **Entorno** | Operación normal |
+| **Respuesta** | El sistema registra cada intento en el log de auditoría y bloquea el acceso temporalmente a esa cuenta |
+| **Medida de respuesta** | Número de intentos permitidos antes del bloqueo y duración del mismo |
+
+| Nivel | Valor |
+|---|---|
+| **Mínimo** | Bloqueo después de 10 intentos fallidos por 5 minutos |
+| **Objetivo** | Bloqueo después de 5 intentos fallidos por 5 minutos |
+| **Excepcional** | Bloqueo después de 3 intentos fallidos, alerta registrada en log de seguridad y bloqueo por 15 minutos |
+
+**HU relacionada:** HU-02 — Inicio de sesión
+
+---
+
+### EAC-05 — Observabilidad: Diagnóstico de eventos por sala
+
+"El operador del sistema necesita diagnosticar un problema reportado en una sala específica ocurrido en los últimos 30 minutos. El sistema debe permitir encontrar y correlacionar los eventos relevantes de forma rápida y precisa."
+
+| Parte | Descripción |
+|---|---|
+| **Fuente de estímulo** | Operador del sistema |
+| **Estímulo** | Consulta de logs filtrando por sala_id y rango de tiempo |
+| **Artefacto** | Sistema de logs estructurados (Logger) |
+| **Entorno** | Operación normal post-incidente |
+| **Respuesta** | El sistema retorna todos los eventos de esa sala en formato JSON ordenados cronológicamente con todos los campos requeridos |
+| **Medida de respuesta** | Tiempo de respuesta de la consulta y completitud de los datos retornados |
+
+| Nivel | Valor |
+|---|---|
+| **Mínimo** | Retorna los logs en ≤ 10 segundos con todos los campos requeridos |
+| **Objetivo** | Retorna los logs en ≤ 3 segundos con correlación entre eventos |
+| **Excepcional** | Retorna los logs en ≤ 1 segundo con visualización directa en el dashboard en tiempo real |
+
+**HU relacionada:** HU-12 — Registro de logs estructurados | HU-15 — Dashboard de visualización
+
+---
+
+### EAC-06 — Modificabilidad: Integración de nuevo modo de juego
+
+"Un desarrollador necesita agregar un nuevo modo de juego al sistema durante tiempo de desarrollo. El cambio debe integrarse sin modificar los módulos existentes correspondientes a otros modos de juego ya implementados."
+
+| Parte | Descripción |
+|---|---|
+| **Fuente de estímulo** | Desarrollador del equipo |
+| **Estímulo** | Agrega un nuevo modo de juego al Game Engine |
+| **Artefacto** | Arquitectura modular del servidor (Game Engine) |
+| **Entorno** | Tiempo de desarrollo |
+| **Respuesta** | El código del nuevo modo es integrado y las pruebas de los modos existentes siguen pasando sin cambios |
+| **Medida de respuesta** | Número de módulos o clases existentes que requieren modificación |
+
+| Nivel | Valor |
+|---|---|
+| **Mínimo** | Requiere modificar ≤ 5 módulos existentes |
+| **Objetivo** | Requiere modificar ≤ 2 módulos existentes |
+| **Excepcional** | No requiere modificar ningún módulo existente, solo agregar nuevo código |
+
+**HU relacionada:** HU-07 — Modo Supervivencia | HU-08 — Modo Eliminación por Puntuación
+
+---
+
+### Resumen de Escenarios de Calidad
+
+| ID | Atributo | Artefacto principal | Medida mínima | Medida objetivo |
+|---|---|---|---|---|
+| EAC-01 | Rendimiento | Game Engine + WebSocket | Latencia ≤ 200ms | Latencia ≤ 100ms |
+| EAC-02 | Rendimiento / Concurrencia | Game Room Manager | ≤ 500ms bajo carga | ≤ 200ms bajo carga |
+| EAC-03 | Disponibilidad | Game Room Manager + WebSocket | Reconexión ≤ 60s | Reconexión ≤ 30s |
+| EAC-04 | Seguridad | Auth Service | Bloqueo tras 10 intentos | Bloqueo tras 5 intentos |
+| EAC-05 | Observabilidad | Logger + Dashboard | Logs en ≤ 10s | Logs en ≤ 3s |
+| EAC-06 | Modificabilidad | Game Engine | ≤ 5 módulos modificados | ≤ 2 módulos modificados |
+
+---
+## Atributos de Calidad
+
+ Un atributo de calidad es una propiedad medible del sistema que indica qué tan bien satisface las necesidades de las partes interesadas. También se conocen como requerimientos no funcionales o características de arquitectura.
+
+Los siguientes atributos de calidad fueron identificados para **Bombereci Arena** y se encuentran evidenciados tanto en los escenarios de calidad como en la arquitectura del sistema.
+
+---
+
+###  Desempeño 
+Representa el comportamiento del sistema relativo a la cantidad de recursos utilizados y los tiempos de respuesta bajo condiciones determinadas.
+
+**Aplicación en Bombereci Arena:**
+El sistema debe procesar eventos de juego en tiempo real (movimientos, explosiones, sincronización de estado) con latencia controlada. 
+
+**Tácticas aplicadas:**
+- *Introduce Concurrency:* el servidor procesa cada sala de juego de forma independiente y concurrente.
+- *Limit Event Response:* se controla el número máximo de bombas activas por jugador para reducir la demanda de procesamiento.
+- *Schedule Resources:* el Game Engine prioriza el procesamiento de eventos críticos (explosiones, eliminaciones) sobre eventos secundarios.
+
+**Escenarios relacionados:** EAC-01, EAC-02
+
+---
+
+###  Disponibilidad 
+Capacidad del sistema de estar operativo y accesible cuando se requiere. Está asociado a las fallas del sistema y sus consecuencias, las cuales son observables por los usuarios.
+
+**Aplicación en Bombereci Arena:**
+El sistema debe tolerar desconexiones inesperadas de jugadores sin interrumpir la partida para los demás participantes. Ante una desconexión, el sistema debe detectar la falla, notificar a los demás clientes y mantener una ventana de reconexión.
+
+**Tácticas aplicadas:**
+- *Heartbeat / Ping-Echo:* el servidor monitorea activamente la conexión de cada jugador.
+- *State Resynchronization:* al reconectarse, el cliente recibe el estado actualizado de la partida.
+- *Exception Handling:* las desconexiones son capturadas y manejadas sin propagar el fallo a otras salas.
+
+**Escenarios relacionados:** EAC-03
+
+---
+
+### Seguridad
+Capacidad de protección de la información y los datos de manera que personas o sistemas no autorizados no puedan leerlos o modificarlos. Mide la habilidad del sistema para resistir usos no autorizados sin dejar de prestar servicio a los usuarios legítimos.
+
+**Aplicación en Bombereci Arena:**
+El sistema debe proteger las cuentas de los jugadores ante intentos de acceso no autorizado, registrar los intentos fallidos en una bitácora de auditoría y bloquear el acceso ante comportamiento sospechoso.
+
+**Tácticas aplicadas:**
+- *Authenticate Actors:* validación de credenciales en el Auth Service antes de permitir el acceso.
+- *Limit Access:* bloqueo temporal de cuentas ante múltiples intentos fallidos de login.
+- *Maintain Audit Trail:* registro de todos los intentos de acceso en logs estructurados con nivel de seguridad.
+- *Detect Intrusion:* detección de patrones de acceso sospechosos por volumen de intentos.
+
+**Escenarios relacionados:** EAC-04
+
+---
+
+### Modificabilidad 
+Capacidad del sistema de ser modificado efectiva y eficientemente ante necesidades evolutivas, correctivas o perfectivas. Está asociada al costo del cambio en términos de módulos afectados y tiempo requerido.
+
+**Aplicación en Bombereci Arena:**
+La arquitectura modular del servidor permite agregar nuevos modos de juego, ajustar reglas o incorporar funcionalidades adicionales sin impactar los módulos existentes. Esto es clave dado que el proyecto contempla el modo Dominación de Territorio como expansión futura.
+
+**Tácticas aplicadas:**
+- *Increase Cohesion:* cada módulo del servidor (Auth Service, Lobby Manager, Game Engine, AI Controller) tiene una responsabilidad única y bien definida.
+- *Reduce Coupling / Encapsulate:* los módulos se comunican a través de interfaces definidas, sin dependencias directas entre sí.
+- *Abstract Common Services:* los servicios compartidos como logs y métricas están centralizados en la capa de observabilidad.
+
+**Escenarios relacionados:** EAC-06
+
+---
+
+###  Escalabilidad
+Propiedad del sistema de manejar cantidades crecientes de trabajo o de ser fácilmente expandido en respuesta a una demanda creciente de jugadores, salas o eventos.
+
+**Aplicación en Bombereci Arena:**
+El sistema debe soportar múltiples salas activas simultáneamente de forma independiente. Cada sala tiene su propio estado y ciclo de vida, lo que permite escalar el número de partidas concurrentes sin degradar el rendimiento de las existentes.
+
+**Tácticas aplicadas:**
+- *Procesamiento asíncrono:* los eventos de cada sala se procesan en hilos o procesos independientes, permitiendo paralelización.
+- *Escalabilidad vertical:* en una primera fase, el servidor puede escalar verticalmente aumentando los recursos de cómputo disponibles.
+- *Escalabilidad horizontal (futura):* la separación de salas como unidades independientes facilita una futura distribución en múltiples nodos con balanceo de carga.
+
+**Escenarios relacionados:** EAC-02
+
+---
+
+###  Testeabilidad 
+Facilidad con la que se pueden establecer criterios de prueba para el sistema y con la que se pueden llevar a cabo pruebas para determinar si dichos criterios se cumplen.
+
+**Aplicación en Bombereci Arena:**
+La arquitectura modular facilita la escritura de pruebas unitarias e integración para cada componente de forma independiente. Los criterios de aceptación en formato Gherkin definidos en cada historia de usuario sirven como base directa para las pruebas automatizadas del sistema.
+
+**Tácticas aplicadas:**
+- *Interfaces observables:* cada módulo expone interfaces que permiten controlar su comportamiento e inspeccionar su salida durante las pruebas.
+- *Separación de responsabilidades:* la independencia entre módulos reduce la longitud de la cadena de dependencias al momento de ejecutar pruebas.
+- *Cobertura mínima definida:* el DoD establece cobertura de pruebas unitarias ≥ 80% como requisito de entrega.
+
+**Escenarios relacionados:** EAC-06
+
+---
+
+### Resumen de Atributos de Calidad
+
+| Atributo | Táctica principal | Componente clave | Escenario |
+|---|---|---|---|
+| Desempeño | Introduce Concurrency | Game Engine + WebSocket | EAC-01, EAC-02 |
+| Disponibilidad | Heartbeat + State Resync | Game Room Manager | EAC-03 |
+| Seguridad | Authenticate + Audit Trail | Auth Service | EAC-04 |
+| Observabilidad | Structured Logging + Metrics | Logger + Dashboard | EAC-05 |
+| Modificabilidad | Encapsulate + High Cohesion | Arquitectura modular | EAC-06 |
+| Escalabilidad | Async Processing | Game Room Manager | EAC-02 |
+| Testeabilidad | Observable Interfaces | Todos los módulos | EAC-06 |
+
+
