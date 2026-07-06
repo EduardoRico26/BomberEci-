@@ -6,11 +6,19 @@ const logger     = require('./logger');
 const LobbyManager = require('./lobby/LobbyManager');
 const GameRoom     = require('./game/GameRoom');
 
+const cookieParser = require('cookie-parser');
+const authRoutes = require('./auth/authRoutes');
+require('dotenv').config();
+
 const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server);
 
 app.use(express.static(path.join(__dirname, '../client')));
+
+app.use(express.json());
+app.use(cookieParser());
+app.use('/auth', authRoutes);
 
 const lobby = new LobbyManager();
 const rooms = new Map();
