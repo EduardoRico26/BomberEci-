@@ -83,7 +83,7 @@
   </style>
 </head>
 <body>
-  <h1>💣 BomberEci Arena</h1>
+  <h1> BomberEci Arena</h1>
   <p>Crea tu cuenta para jugar</p>
 
   <div class="card">
@@ -183,8 +183,9 @@
 
         if (res.ok) {
           mensajeEl.className = 'exito';
-          mensajeEl.textContent = data.mensaje;
+          mensajeEl.textContent = data.mensaje + ' Redirigiendo al login...';
           btn.textContent = '¡Cuenta creada!';
+          setTimeout(() => window.location.href = '/login.html', 3000);
         } else {
           mensajeEl.className = 'error';
           mensajeEl.textContent = data.mensaje;

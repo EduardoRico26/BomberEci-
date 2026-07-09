@@ -84,7 +84,7 @@
   </style>
 </head>
 <body>
-  <h1>💣 BomberEci Arena</h1>
+  <h1> BomberEci Arena</h1>
   <p>Inicia sesión para jugar</p>
 
   <div class="card">
@@ -149,7 +149,7 @@
         if (res.ok) {
           mensajeEl.className = 'exito';
           mensajeEl.textContent = data.mensaje;
-          setTimeout(() => window.location.href = '/', 1000);
+          setTimeout(() => window.location.href = '/inicio.html', 1000);
         } else {
           mensajeEl.className = 'error';
           mensajeEl.textContent = data.mensaje;

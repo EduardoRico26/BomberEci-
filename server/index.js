@@ -23,6 +23,16 @@ app.use('/auth', authRoutes);
 const lobby = new LobbyManager();
 const rooms = new Map();
 
+// Ruta principal redirige a registro si no está autenticado
+app.get('/', (req, res) => {
+  const token = req.cookies?.token;
+  if (!token) {
+    res.redirect('/registro.html');
+    return;
+  }
+  res.sendFile(path.join(__dirname, '../client/index.html'));
+});
+
 io.on('connection', (socket) => {
   logger.info({ event: 'player_connected', socketId: socket.id });
   socket.emit('lista_salas', lobby.getSalasDisponibles());
