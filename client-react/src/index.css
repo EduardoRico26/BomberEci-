@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Tungsten:wght@400;600;700&family=DIN+Next+LT+Pro:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --val-red: #FF4655;
+  --val-red-dark: #cc1a28;
+  --val-black: #0f1923;
+  --val-dark: #1f2731;
+  --val-gray: #768079;
+  --val-light: #ece8e1;
+  --val-white: #ffffff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--val-black);
+  color: var(--val-light);
+  font-family: 'Rajdhani', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.font-val {
+  font-family: 'Bebas Neue', cursive;
+  letter-spacing: 0.08em;
+}
+
+/* Botón estilo Valorant con esquinas cortadas */
+.btn-val {
+  position: relative;
+  background: var(--val-red);
+  color: white;
+  font-family: 'Bebas Neue', cursive;
+  font-size: 1.1rem;
+  letter-spacing: 0.15em;
+  padding: 12px 32px;
+  border: none;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  transition: background 0.15s, transform 0.1s;
+}
+.btn-val:hover { background: #ff6470; transform: scale(1.02); }
+.btn-val:active { transform: scale(0.98); }
+.btn-val:disabled { background: #555; cursor: not-allowed; transform: none; }
+
+/* Botón secundario */
+.btn-val-outline {
+  position: relative;
+  background: transparent;
+  color: var(--val-light);
+  font-family: 'Bebas Neue', cursive;
+  font-size: 1rem;
+  letter-spacing: 0.15em;
+  padding: 10px 28px;
+  border: 1px solid var(--val-gray);
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-val-outline:hover { border-color: var(--val-red); color: var(--val-red); }
+
+/* Input estilo Valorant */
+.input-val {
+  background: rgba(255,255,255,0.05);
+  border: none;
+  border-bottom: 2px solid var(--val-gray);
+  color: var(--val-white);
+  padding: 12px 4px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1rem;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+  letter-spacing: 0.05em;
+}
+.input-val:focus { border-bottom-color: var(--val-red); }
+.input-val::placeholder { color: var(--val-gray); font-size: 0.9rem; }
+
+/* Card con esquina cortada */
+.card-val {
+  background: rgba(15, 25, 35, 0.92);
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+  border: 1px solid rgba(255,70,85,0.2);
+}
+
+/* Línea decorativa roja */
+.red-line {
+  width: 40px;
+  height: 3px;
+  background: var(--val-red);
+  display: block;
+}
+
+/* Animaciones */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes flotar {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+@keyframes pulsar {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.slide-right { animation: slideInRight 0.4s ease forwards; }
+.slide-left  { animation: slideInLeft  0.4s ease forwards; }
+.fade-in     { animation: fadeIn       0.6s ease forwards; }
+.flotar      { animation: flotar 3s ease-in-out infinite; }
+.pulsar      { animation: pulsar 2s ease-in-out infinite; }
