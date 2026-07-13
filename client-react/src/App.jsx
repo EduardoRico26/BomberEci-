@@ -6,6 +6,7 @@ import Registro  from './pages/Registro';
 import Inicio    from './pages/Inicio';
 import Lobby     from './pages/Lobby';
 import Recuperar from './pages/Recuperar';
+import NuevaPassword from './pages/NuevaPassword';
 
 function RutaProtegida({ children }) {
   const { usuario, cargando } = useAuth();
@@ -33,6 +34,7 @@ function AppRoutes() {
         <Route path="/recuperar" element={<RutaPublica><Recuperar /></RutaPublica>} />
         <Route path="/inicio"   element={<RutaProtegida><Inicio /></RutaProtegida>} />
         <Route path="/lobby"    element={<RutaProtegida><Lobby /></RutaProtegida>} />
+        <Route path="/nueva-password" element={<NuevaPassword />} />
       </Routes>
     </BrowserRouter>
   );

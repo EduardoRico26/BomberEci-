@@ -8,209 +8,438 @@ import PhaserGame from '../game/PhaserGame';
 export default function Lobby() {
   const { usuario, logout } = useAuth();
   const navigate = useNavigate();
+
   const [vista, setVista] = useState('menu');
   const [salas, setSalas] = useState([]);
+  const [salasFiltradas, setSalasFiltradas] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
+  const [nombreSala, setNombreSala] = useState('');
   const [mensajeEspera, setMensajeEspera] = useState('');
+  const [errorNombre, setErrorNombre] = useState('');
   const [estadoInicial, setEstadoInicial] = useState(null);
   const [salaId, setSalaId] = useState('');
 
   useEffect(() => {
     socket.connect();
     socket.on('connect', () => socket.emit('pedir_salas'));
-    socket.on('lista_salas', setSalas);
+    socket.on('lista_salas', (data) => {
+      setSalas(data);
+      setSalasFiltradas(data);
+    });
     socket.on('sala_creada', ({ salaId }) => {
       setSalaId(salaId);
-      setMensajeEspera(`Sala ${salaId} creada. Esperando rival...`);
+      setMensajeEspera(`Sala "${salaId}" creada. Esperando rival...`);
     });
     socket.on('iniciar_partida', (estado) => {
       setEstadoInicial(estado);
       setVista('juego');
     });
-    socket.on('error_sala', setMensajeEspera);
+    socket.on('error_sala', (msg) => {
+      setErrorNombre(msg);
+      setMensajeEspera(msg);
+    });
     const intervalo = setInterval(() => socket.emit('pedir_salas'), 2000);
     return () => {
       clearInterval(intervalo);
-      socket.off('connect'); socket.off('lista_salas');
-      socket.off('sala_creada'); socket.off('iniciar_partida');
-      socket.off('error_sala'); socket.disconnect();
+      socket.off('connect');
+      socket.off('lista_salas');
+      socket.off('sala_creada');
+      socket.off('iniciar_partida');
+      socket.off('error_sala');
+      socket.disconnect();
     };
   }, []);
 
+  // Filtrar salas en tiempo real
+  useEffect(() => {
+    if (!busqueda.trim()) {
+      setSalasFiltradas(salas);
+    } else {
+      setSalasFiltradas(
+        salas.filter(s => s.id.toLowerCase().includes(busqueda.toLowerCase()))
+      );
+    }
+  }, [busqueda, salas]);
+
   function crearSala() {
-    socket.emit('crear_sala', { nombre: usuario.nombre });
+    if (!nombreSala.trim()) {
+      setErrorNombre('Escribe un nombre para tu sala.');
+      return;
+    }
+    if (nombreSala.trim().length < 3) {
+      setErrorNombre('El nombre debe tener al menos 3 caracteres.');
+      return;
+    }
+    setErrorNombre('');
+    socket.emit('crear_sala', { nombre: usuario.nombre, nombreSala: nombreSala.trim() });
+    setMensajeEspera('Creando sala...');
     setVista('crear');
   }
 
   function unirseSala(id) {
     socket.emit('unirse_sala', { salaId: id, nombre: usuario.nombre });
     setSalaId(id);
+    setMensajeEspera(`Uniéndose a "${id}"...`);
+  }
+
+  async function cerrarSesion() {
+    await logout();
+    navigate('/login');
   }
 
   if (vista === 'juego') {
-    return <PhaserGame estadoInicial={estadoInicial} socket={socket} miNombre={usuario.nombre} salaId={salaId}/>;
+    return (
+      <PhaserGame
+        estadoInicial={estadoInicial}
+        socket={socket}
+        miNombre={usuario.nombre}
+        salaId={salaId}
+      />
+    );
   }
 
-  return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0f1923' }}>
+  const lineaRoja = { width: '58px', height: '4px', background: '#FF4655', marginBottom: '18px' };
 
-      {/* Header estilo Valorant */}
-      <div className="flex items-center justify-between px-10 py-5 border-b"
-        style={{ borderColor: 'rgba(255,70,85,0.2)' }}>
-        <div className="flex items-center gap-4">
-          <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain"/>
-          <div>
-            <p className="font-val text-xl text-white">BOMBERECI ARENA</p>
-            <p className="text-xs uppercase tracking-widest" style={{ color: '#FF4655' }}>
-              SELECCIÓN DE PARTIDA
+  const inputStyle = {
+    width: '100%',
+    background: 'transparent',
+    border: 'none',
+    borderBottom: '2px solid #768079',
+    color: 'white',
+    fontSize: '1rem',
+    padding: '10px 4px',
+    outline: 'none',
+    fontFamily: "'Rajdhani', sans-serif",
+    letterSpacing: '0.05em',
+    transition: 'border-color 0.2s'
+  };
+
+  return (
+    <div style={{
+      width: '100%', minHeight: '100vh',
+      position: 'relative', overflow: 'hidden',
+      background: '#0a1016'
+    }}>
+
+      {/* Fondo */}
+      <img src="/lobby.png" alt="Lobby"
+        style={{
+          position: 'absolute', inset: 0,
+          width: '100%', height: '100%',
+          objectFit: 'cover', objectPosition: 'center center'
+        }}
+      />
+
+      {/* Overlay */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(8, 12, 18, 0.72)', zIndex: 1
+      }}/>
+
+      {/* Header */}
+      <header style={{
+        position: 'absolute', top: '28px',
+        left: 'clamp(24px, 4vw, 72px)',
+        right: 'clamp(24px, 4vw, 72px)',
+        zIndex: 10,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+      }}>
+        <div>
+          <p style={{ color: '#FF4655', fontSize: '0.72rem', letterSpacing: '0.18em', margin: 0, textTransform: 'uppercase' }}>
+            BomberEci Arena
+          </p>
+          <p style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '1.65rem', letterSpacing: '0.09em', margin: '3px 0 0' }}>
+            SELECCIÓN DE PARTIDA
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ color: '#c2c8ce', fontSize: '0.68rem', letterSpacing: '0.13em', margin: 0, textTransform: 'uppercase' }}>
+              Jugador
+            </p>
+            <p style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '1.25rem', letterSpacing: '0.08em', margin: '4px 0 0' }}>
+              {usuario?.nombre?.toUpperCase() || 'JUGADOR'}
             </p>
           </div>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-widest" style={{ color: '#768079' }}>Jugador</p>
-            <p className="font-val text-lg text-white">{usuario?.nombre?.toUpperCase()}</p>
-          </div>
-          <button onClick={async () => { await logout(); navigate('/login'); }}
-            className="btn-val-outline text-xs">
+          <button onClick={cerrarSesion} className="btn-val-outline" style={{ fontSize: '0.72rem' }}>
             SALIR
           </button>
         </div>
-      </div>
+      </header>
 
       {/* Contenido */}
-      <div className="flex-1 flex items-center justify-center px-10">
+      <main style={{
+        position: 'relative', zIndex: 5,
+        minHeight: '100vh',
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        padding: '60px clamp(24px, 6vw, 80px) 48px'
+      }}>
         <AnimatePresence mode="wait">
 
-          {/* MENÚ PRINCIPAL */}
+          {/* MENÚ */}
           {vista === 'menu' && (
-            <motion.div key="menu"
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="flex flex-col items-center gap-10 w-full max-w-3xl">
+            <motion.section key="menu"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.35 }}
+              style={{ width: 'min(720px, 100%)' }}>
 
-              <div className="text-center">
-                <span className="red-line mx-auto mb-4"/>
-                <h2 className="font-val text-5xl text-white mt-4">¿QUÉ DESEAS HACER?</h2>
+              <div style={{ marginBottom: '32px' }}>
+                <div style={lineaRoja}/>
+                <p style={{ color: '#FF4655', fontSize: '0.8rem', letterSpacing: '0.15em', textTransform: 'uppercase', margin: '0 0 10px' }}>
+                  Arena multijugador
+                </p>
+                <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: 'clamp(2.8rem, 5vw, 4.5rem)', letterSpacing: '0.07em', lineHeight: 0.95, margin: 0 }}>
+                  ELIGE TU PARTIDA
+                </h1>
+                <p style={{ color: '#c2c8ce', fontSize: '0.95rem', lineHeight: 1.55, margin: '16px 0 0', maxWidth: '560px' }}>
+                  Crea una nueva sala para esperar a un rival o entra a una partida disponible.
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-6 w-full">
-                {/* Crear sala */}
-                <motion.div
-                  whileHover={{ borderColor: '#FF4655', y: -4 }}
-                  onClick={crearSala}
-                  className="relative cursor-pointer p-8 flex flex-col gap-4 transition-all duration-200"
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '18px' }}>
+
+                {/* Card Crear */}
+                <motion.div whileHover={{ y: -6 }} whileTap={{ scale: 0.98 }}
+                  onClick={() => { setErrorNombre(''); setVista('nombre-sala'); }}
                   style={{
-                    background: 'rgba(255,70,85,0.05)',
-                    border: '1px solid rgba(255,70,85,0.3)',
-                    clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))'
+                    cursor: 'pointer', textAlign: 'left', color: 'white',
+                    minHeight: '240px', padding: '28px',
+                    background: 'rgba(10, 16, 22, 0.78)',
+                    border: '1px solid rgba(255, 70, 85, 0.55)',
+                    clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px))'
                   }}>
-                  <span className="text-5xl">🏠</span>
-                  <div>
-                    <h3 className="font-val text-2xl text-white">CREAR SALA</h3>
-                    <p className="text-sm mt-1" style={{ color: '#768079' }}>
-                      Crea una sala y espera a que un rival se una a tu partida
-                    </p>
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5"
-                    style={{ background: 'linear-gradient(to right, #FF4655, transparent)' }}/>
+                  <p style={{ color: '#FF4655', fontSize: '0.75rem', letterSpacing: '0.16em', margin: 0, textTransform: 'uppercase' }}>
+                    Protocolo 01
+                  </p>
+                  <h2 style={{ fontFamily: "'Bebas Neue', cursive", fontSize: '2.25rem', letterSpacing: '0.07em', margin: '18px 0 10px' }}>
+                    CREAR SALA
+                  </h2>
+                  <p style={{ color: '#c2c8ce', fontSize: '0.9rem', lineHeight: 1.5, margin: 0 }}>
+                    Abre una arena privada con tu propio nombre y espera la llegada de tu oponente.
+                  </p>
+                  <div style={{ height: '2px', marginTop: '28px', background: 'linear-gradient(to right, #FF4655, transparent)' }}/>
                 </motion.div>
 
-                {/* Unirse */}
-                <motion.div
-                  whileHover={{ borderColor: '#FF4655', y: -4 }}
-                  onClick={() => setVista('unirse')}
-                  className="relative cursor-pointer p-8 flex flex-col gap-4 transition-all duration-200"
+                {/* Card Unirse */}
+                <motion.div whileHover={{ y: -6 }} whileTap={{ scale: 0.98 }}
+                  onClick={() => { setBusqueda(''); setMensajeEspera(''); setVista('unirse'); }}
                   style={{
-                    background: 'rgba(255,70,85,0.05)',
-                    border: '1px solid rgba(255,70,85,0.3)',
-                    clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))'
+                    cursor: 'pointer', textAlign: 'left', color: 'white',
+                    minHeight: '240px', padding: '28px',
+                    background: 'rgba(10, 16, 22, 0.78)',
+                    border: '1px solid rgba(255, 70, 85, 0.55)',
+                    clipPath: 'polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px))'
                   }}>
-                  <span className="text-5xl">🚀</span>
-                  <div>
-                    <h3 className="font-val text-2xl text-white">UNIRSE A SALA</h3>
-                    <p className="text-sm mt-1" style={{ color: '#768079' }}>
-                      Busca una sala disponible y únete a la batalla
-                    </p>
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5"
-                    style={{ background: 'linear-gradient(to right, #FF4655, transparent)' }}/>
+                  <p style={{ color: '#FF4655', fontSize: '0.75rem', letterSpacing: '0.16em', margin: 0, textTransform: 'uppercase' }}>
+                    Protocolo 02
+                  </p>
+                  <h2 style={{ fontFamily: "'Bebas Neue', cursive", fontSize: '2.25rem', letterSpacing: '0.07em', margin: '18px 0 10px' }}>
+                    UNIRSE A SALA
+                  </h2>
+                  <p style={{ color: '#c2c8ce', fontSize: '0.9rem', lineHeight: 1.5, margin: 0 }}>
+                    Consulta las salas disponibles o busca directamente por nombre.
+                  </p>
+                  <div style={{ height: '2px', marginTop: '28px', background: 'linear-gradient(to right, #FF4655, transparent)' }}/>
                 </motion.div>
               </div>
-            </motion.div>
+            </motion.section>
           )}
 
-          {/* ESPERANDO */}
+          {/* NOMBRE DE SALA */}
+          {vista === 'nombre-sala' && (
+            <motion.section key="nombre-sala"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.35 }}
+              style={{ width: 'min(440px, 100%)' }}>
+
+              <div style={lineaRoja}/>
+              <p style={{ color: '#FF4655', fontSize: '0.78rem', letterSpacing: '0.15em', textTransform: 'uppercase', margin: '0 0 10px' }}>
+                Protocolo 01
+              </p>
+              <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '3.5rem', letterSpacing: '0.07em', lineHeight: 0.95, margin: '0 0 32px' }}>
+                CREAR SALA
+              </h1>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '28px' }}>
+                <label style={{ color: '#768079', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+                  Nombre de la sala
+                </label>
+                <input
+                  value={nombreSala}
+                  onChange={e => { setNombreSala(e.target.value); setErrorNombre(''); }}
+                  onKeyDown={e => e.key === 'Enter' && crearSala()}
+                  placeholder="Ej: ArenaDeFuego"
+                  maxLength={20}
+                  style={inputStyle}
+                  onFocus={e => e.target.style.borderBottomColor = '#FF4655'}
+                  onBlur={e => e.target.style.borderBottomColor = '#768079'}
+                />
+                {errorNombre && (
+                  <p style={{ color: '#FF4655', fontSize: '0.78rem', margin: '4px 0 0' }}>
+                    {errorNombre}
+                  </p>
+                )}
+                <p style={{ color: '#768079', fontSize: '0.72rem', margin: '4px 0 0' }}>
+                  El nombre se convertirá a mayúsculas. Máximo 20 caracteres.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={crearSala} className="btn-val" style={{ fontSize: '0.85rem' }}>
+                  CREAR SALA
+                </button>
+                <button onClick={() => { setNombreSala(''); setErrorNombre(''); setVista('menu'); }}
+                  className="btn-val-outline" style={{ fontSize: '0.76rem' }}>
+                  VOLVER
+                </button>
+              </div>
+            </motion.section>
+          )}
+
+          {/* ESPERANDO RIVAL */}
           {vista === 'crear' && (
-            <motion.div key="crear"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-8 text-center">
-              <span className="red-line mx-auto"/>
-              <h2 className="font-val text-4xl text-white mt-4">BUSCANDO RIVAL</h2>
-              <p style={{ color: '#768079' }}>{mensajeEspera}</p>
-              <div className="flex gap-2">
+            <motion.section key="crear"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.35 }}
+              style={{ width: 'min(440px, 100%)' }}>
+
+              <div style={lineaRoja}/>
+              <p style={{ color: '#FF4655', fontSize: '0.78rem', letterSpacing: '0.15em', textTransform: 'uppercase', margin: '0 0 10px' }}>
+                Sala privada
+              </p>
+              <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '4rem', letterSpacing: '0.07em', lineHeight: 0.95, margin: 0 }}>
+                BUSCANDO RIVAL
+              </h1>
+              <p style={{ color: '#c2c8ce', fontSize: '1rem', lineHeight: 1.6, margin: '18px 0 26px' }}>
+                {mensajeEspera || 'Esperando rival...'}
+              </p>
+
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '30px' }}>
                 {[0,1,2,3].map(i => (
-                  <motion.div key={i} className="w-2 h-2 rounded-full"
-                    style={{ background: '#FF4655' }}
-                    animate={{ opacity: [0.3, 1, 0.3] }}
-                    transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}/>
+                  <motion.div key={i}
+                    animate={{ opacity: [0.25, 1, 0.25] }}
+                    transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.18 }}
+                    style={{ width: '9px', height: '9px', background: '#FF4655' }}
+                  />
                 ))}
               </div>
-              <button onClick={() => setVista('menu')} className="btn-val-outline text-xs mt-4">
+
+              <button onClick={() => { setNombreSala(''); setVista('menu'); }}
+                className="btn-val-outline" style={{ fontSize: '0.76rem' }}>
                 CANCELAR
               </button>
-            </motion.div>
+            </motion.section>
           )}
 
           {/* LISTA DE SALAS */}
           {vista === 'unirse' && (
-            <motion.div key="unirse"
-              initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0 }}
-              className="w-full max-w-xl flex flex-col gap-6">
-              <div>
-                <span className="red-line mb-4"/>
-                <h2 className="font-val text-4xl text-white mt-4">SALAS DISPONIBLES</h2>
+            <motion.section key="unirse"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.35 }}
+              style={{ width: 'min(720px, 100%)' }}>
+
+              <div style={{ marginBottom: '26px' }}>
+                <div style={lineaRoja}/>
+                <p style={{ color: '#FF4655', fontSize: '0.78rem', letterSpacing: '0.15em', textTransform: 'uppercase', margin: '0 0 10px' }}>
+                  Arena multijugador
+                </p>
+                <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '4rem', letterSpacing: '0.07em', lineHeight: 0.95, margin: 0 }}>
+                  SALAS DISPONIBLES
+                </h1>
               </div>
 
-              {/* Tabla estilo Valorant */}
-              <div className="border" style={{ borderColor: 'rgba(255,70,85,0.2)' }}>
-                <div className="flex justify-between px-5 py-3 text-xs uppercase tracking-widest"
-                  style={{ background: 'rgba(255,70,85,0.1)', color: '#768079' }}>
+              {/* Buscador */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '20px' }}>
+                <label style={{ color: '#768079', fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+                  Buscar por nombre de sala
+                </label>
+                <input
+                  value={busqueda}
+                  onChange={e => setBusqueda(e.target.value)}
+                  placeholder="Ej: ArenaDeFuego"
+                  style={inputStyle}
+                  onFocus={e => e.target.style.borderBottomColor = '#FF4655'}
+                  onBlur={e => e.target.style.borderBottomColor = '#768079'}
+                />
+              </div>
+
+              {/* Tabla */}
+              <div style={{
+                border: '1px solid rgba(255, 70, 85, 0.42)',
+                background: 'rgba(10, 16, 22, 0.82)'
+              }}>
+                <div style={{
+                  display: 'grid', gridTemplateColumns: '1.5fr 0.7fr 0.9fr',
+                  gap: '12px', padding: '14px 20px',
+                  borderBottom: '1px solid rgba(255, 70, 85, 0.28)',
+                  color: '#c2c8ce', fontSize: '0.7rem',
+                  letterSpacing: '0.13em', textTransform: 'uppercase'
+                }}>
                   <span>Sala</span>
                   <span>Jugadores</span>
                   <span>Estado</span>
                 </div>
-                {salas.length === 0 ? (
-                  <div className="px-5 py-10 text-center" style={{ color: '#768079' }}>
-                    <p className="font-val text-xl">SIN SALAS DISPONIBLES</p>
-                    <p className="text-sm mt-2">Crea una sala y espera a alguien</p>
+
+                {salasFiltradas.length === 0 ? (
+                  <div style={{ padding: '46px 24px', color: '#c2c8ce', textAlign: 'center' }}>
+                    <p style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '1.7rem', letterSpacing: '0.08em', margin: 0 }}>
+                      {busqueda ? 'SIN RESULTADOS' : 'SIN SALAS DISPONIBLES'}
+                    </p>
+                    <p style={{ fontSize: '0.9rem', margin: '10px 0 0' }}>
+                      {busqueda ? `No hay salas con el nombre "${busqueda}"` : 'Crea una sala para iniciar una nueva partida.'}
+                    </p>
                   </div>
                 ) : (
-                  salas.map((s, i) => (
-                    <motion.div key={s.id}
-                      whileHover={{ background: 'rgba(255,70,85,0.1)' }}
-                      onClick={() => unirseSala(s.id)}
-                      className="flex justify-between items-center px-5 py-4 cursor-pointer border-t transition-colors"
-                      style={{ borderColor: 'rgba(255,70,85,0.1)' }}>
-                      <span className="font-val text-lg text-white">💣 {s.id.toUpperCase()}</span>
-                      <span style={{ color: '#768079' }}>{s.jugadores}/2</span>
-                      <span className="text-xs uppercase tracking-widest px-3 py-1"
-                        style={{ background: 'rgba(255,70,85,0.15)', color: '#FF4655' }}>
-                        DISPONIBLE
+                  salasFiltradas.map((sala) => (
+                    <motion.button key={sala.id}
+                      whileHover={{ backgroundColor: 'rgba(255, 70, 85, 0.12)' }}
+                      onClick={() => unirseSala(sala.id)}
+                      style={{
+                        width: '100%', cursor: 'pointer',
+                        display: 'grid', gridTemplateColumns: '1.5fr 0.7fr 0.9fr',
+                        gap: '12px', alignItems: 'center',
+                        padding: '18px 20px', color: 'white',
+                        background: 'transparent', border: 'none',
+                        borderTop: '1px solid rgba(255, 70, 85, 0.15)',
+                        textAlign: 'left'
+                      }}>
+                      <span style={{ fontFamily: "'Bebas Neue', cursive", fontSize: '1.4rem', letterSpacing: '0.08em' }}>
+                        {sala.id}
                       </span>
-                    </motion.div>
+                      <span style={{ color: '#c2c8ce', fontSize: '0.9rem' }}>
+                        {sala.jugadores}/2
+                      </span>
+                      <span style={{ color: '#FF4655', fontSize: '0.7rem', letterSpacing: '0.11em', textTransform: 'uppercase' }}>
+                        Disponible
+                      </span>
+                    </motion.button>
                   ))
                 )}
               </div>
 
-              <button onClick={() => setVista('menu')} className="btn-val-outline text-xs self-start">
-                ← VOLVER
+              {mensajeEspera && (
+                <p style={{ color: '#ff8b95', fontSize: '0.85rem', margin: '14px 0 0' }}>
+                  {mensajeEspera}
+                </p>
+              )}
+
+              <button onClick={() => { setBusqueda(''); setMensajeEspera(''); setVista('menu'); }}
+                className="btn-val-outline" style={{ fontSize: '0.76rem', marginTop: '24px' }}>
+                VOLVER
               </button>
-            </motion.div>
+            </motion.section>
           )}
 
         </AnimatePresence>
-      </div>
+      </main>
     </div>
   );
 }

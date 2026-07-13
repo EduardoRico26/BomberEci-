@@ -76,6 +76,7 @@ export default function Login() {
         }}
       />
 
+
       {/* Oscurece la parte derecha para mejorar la lectura */}
       <div
         style={{
