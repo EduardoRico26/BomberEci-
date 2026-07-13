@@ -1,19 +1,21 @@
 class LobbyManager {
   constructor() {
     this.salas = new Map();
-    this.contador = 1;
   }
 
-  crearSala() {
-    const salaId = `sala-${this.contador++}`;
-    this.salas.set(salaId, { id: salaId, jugadores: [] });
-    return salaId;
+  crearSala(nombre) {
+    const nombreLimpio = nombre.trim().toUpperCase().replace(/\s+/g, '-');
+    if (this.salas.has(nombreLimpio)) {
+      return { error: 'Ya existe una sala con ese nombre.' };
+    }
+    this.salas.set(nombreLimpio, { id: nombreLimpio, jugadores: [] });
+    return { ok: true, salaId: nombreLimpio };
   }
 
   unirseASala(salaId, jugador) {
     const sala = this.salas.get(salaId);
-    if (!sala) return { error: 'Sala no encontrada' };
-    if (sala.jugadores.length >= 2) return { error: 'Sala llena' };
+    if (!sala) return { error: 'Sala no encontrada.' };
+    if (sala.jugadores.length >= 2) return { error: 'Sala llena.' };
     sala.jugadores.push(jugador);
     return { ok: true, sala };
   }
@@ -35,7 +37,7 @@ class LobbyManager {
       .filter(s => s.jugadores.length < 2)
       .map(s => ({ id: s.id, jugadores: s.jugadores.length }));
   }
-  
+
   getSala(salaId) {
     return this.salas.get(salaId);
   }

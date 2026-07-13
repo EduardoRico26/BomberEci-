@@ -19,15 +19,22 @@
   },
   "homepage": "https://github.com/EduardoRico26/BomberEci-#readme",
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "axios": "^1.18.1",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
+    "framer-motion": "^12.42.2",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^9.0.3",
     "pg": "^8.22.0",
+    "phaser": "^4.2.1",
+    "react-router-dom": "^7.18.1",
     "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
+    "tailwindcss": "^4.3.2",
     "winston": "^3.19.0"
   },
   "allowScripts": {

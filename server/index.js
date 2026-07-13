@@ -14,7 +14,7 @@ const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server);
 
-app.use(express.static(path.join(__dirname, '../client')));
+app.use(express.static(path.join(__dirname, '../client-react/dist')));
 
 app.use(express.json());
 app.use(cookieParser());
@@ -42,21 +42,24 @@ io.on('connection', (socket) => {
   });
 
   // ── CREAR SALA ──────────────────────────────────────────
-  socket.on('crear_sala', ({ nombre }) => {
-    const salaId = lobby.crearSala();
-    const room   = new GameRoom(salaId, io, logger);
-    rooms.set(salaId, room);
-
-    lobby.unirseASala(salaId, { id: socket.id, nombre });
-    room.agregarJugador(socket.id, nombre);
-    socket.join(salaId);
-    socket.salaId  = salaId;
-    socket.nombre  = nombre;
-
-    socket.emit('sala_creada', { salaId });
-    io.emit('lista_salas', lobby.getSalasDisponibles());
-    logger.info({ event: 'sala_creada', salaId, creador: nombre });
-  });
+    socket.on('crear_sala', ({ nombre, nombreSala }) => {
+      const resultado = lobby.crearSala(nombreSala);
+      if (resultado.error) {
+        socket.emit('error_sala', resultado.error);
+        return;
+      }
+      const salaId = resultado.salaId;
+      const room = new GameRoom(salaId, io, logger);
+      rooms.set(salaId, room);
+      lobby.unirseASala(salaId, { id: socket.id, nombre });
+      room.agregarJugador(socket.id, nombre);
+      socket.join(salaId);
+      socket.salaId = salaId;
+      socket.nombre = nombre;
+      socket.emit('sala_creada', { salaId });
+      io.emit('lista_salas', lobby.getSalasDisponibles());
+      logger.info({ event: 'sala_creada', salaId, creador: nombre });
+    });
 
   // ── UNIRSE A SALA ───────────────────────────────────────
   socket.on('unirse_sala', ({ salaId, nombre }) => {

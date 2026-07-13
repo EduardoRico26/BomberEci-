@@ -23,43 +23,297 @@ function generarToken() {
 }
 
 // Enviar email de verificación
+
 async function enviarEmailVerificacion(correo, nombre, token) {
-  const url = `http://localhost:${process.env.PORT}/auth/verificar/${token}`;
+  const url = `http://localhost:3000/auth/verificar/${token}`;
   await transporter.sendMail({
     from: `"BomberEci Arena" <${process.env.EMAIL_USER}>`,
     to: correo,
     subject: 'Verifica tu correo - BomberEci Arena',
     html: `
-      <div style="font-family:Arial;max-width:500px;margin:auto;background:#1a1a2e;color:#eee;padding:32px;border-radius:12px">
-        <h2 style="color:#e94560">💣 BomberEci Arena</h2>
-        <p>Hola <strong>${nombre}</strong>, gracias por registrarte.</p>
-        <p>Haz clic en el botón para verificar tu correo:</p>
-        <a href="${url}" style="display:inline-block;margin:20px 0;padding:12px 24px;background:#e94560;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold">
-          Verificar correo
-        </a>
-        <p style="color:#aaa;font-size:0.85rem">Si no creaste esta cuenta, ignora este mensaje.</p>
-      </div>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+      </head>
+      <body style="margin:0;padding:0;background:#0a0e14;font-family:'Rajdhani',Arial,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0e14;padding:40px 20px;">
+          <tr>
+            <td align="center">
+              <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+
+                <!-- Línea roja superior -->
+                <tr>
+                  <td style="height:3px;background:linear-gradient(to right,#FF4655,transparent);"></td>
+                </tr>
+
+                <!-- Contenido principal -->
+                <tr>
+                  <td style="background:#0f1923;border:1px solid rgba(255,70,85,0.25);border-top:none;padding:48px 40px;">
+
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-bottom:8px;">
+                          <div style="width:40px;height:3px;background:#FF4655;margin-bottom:20px;"></div>
+                          <p style="margin:0;color:#FF4655;font-size:11px;letter-spacing:4px;text-transform:uppercase;font-weight:600;">
+                            BOMBERECI ARENA
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-bottom:32px;">
+                          <h1 style="margin:8px 0 0;color:#ffffff;font-size:36px;letter-spacing:3px;text-transform:uppercase;font-weight:700;line-height:1;">
+                            VERIFICAR
+                          </h1>
+                          <h1 style="margin:0;color:#FF4655;font-size:36px;letter-spacing:3px;text-transform:uppercase;font-weight:700;line-height:1;">
+                            CORREO
+                          </h1>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Separador -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                      <tr>
+                        <td style="height:1px;background:linear-gradient(to right,rgba(255,70,85,0.4),transparent);"></td>
+                      </tr>
+                    </table>
+
+                    <!-- Mensaje -->
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-bottom:16px;">
+                          <p style="margin:0;color:#c2c8ce;font-size:15px;line-height:1.7;letter-spacing:0.5px;">
+                            Hola <strong style="color:#ffffff;">${nombre}</strong>,
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-bottom:36px;">
+                          <p style="margin:0;color:#c2c8ce;font-size:15px;line-height:1.7;letter-spacing:0.5px;">
+                            Gracias por registrarte en BomberEci Arena.
+                            Para activar tu cuenta y comenzar a jugar,
+                            verifica tu correo electronico haciendo clic en el boton.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Botón -->
+                    <table cellpadding="0" cellspacing="0" style="margin-bottom:36px;">
+                      <tr>
+                        <td>
+                          <a href="${url}"
+                            style="display:inline-block;background:#FF4655;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:4px;text-transform:uppercase;padding:16px 36px;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));">
+                            VERIFICAR CORREO
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Separador -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                      <tr>
+                        <td style="height:1px;background:linear-gradient(to right,rgba(255,70,85,0.4),transparent);"></td>
+                      </tr>
+                    </table>
+
+                    <!-- Aviso -->
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td>
+                          <p style="margin:0;color:#768079;font-size:12px;line-height:1.6;letter-spacing:0.5px;">
+                            Si no creaste esta cuenta, ignora este mensaje.
+                            Nadie podra acceder a tu informacion sin verificar este correo.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="padding:20px 40px;border:1px solid rgba(255,70,85,0.15);border-top:none;background:#0a0e14;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td>
+                          <p style="margin:0;color:#768079;font-size:11px;letter-spacing:2px;text-transform:uppercase;">
+                            BOMBERECI ARENA — VERIFICACION DE CUENTA
+                          </p>
+                        </td>
+                        <td align="right">
+                          <p style="margin:0;color:#FF4655;font-size:11px;letter-spacing:2px;text-transform:uppercase;">
+                            CONFIDENCIAL
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Línea roja inferior -->
+                <tr>
+                  <td style="height:3px;background:linear-gradient(to right,#FF4655,transparent);"></td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
     `
   });
 }
 
 // Enviar email de recuperación de contraseña
 async function enviarEmailRecuperacion(correo, nombre, token) {
-  const url = `http://localhost:${process.env.PORT}/auth/nueva-password/${token}`;
+  const url = `http://localhost:5173/nueva-password?token=${token}`;
   await transporter.sendMail({
     from: `"BomberEci Arena" <${process.env.EMAIL_USER}>`,
     to: correo,
     subject: 'Recuperar contraseña - BomberEci Arena',
     html: `
-      <div style="font-family:Arial;max-width:500px;margin:auto;background:#1a1a2e;color:#eee;padding:32px;border-radius:12px">
-        <h2 style="color:#e94560">💣 BomberEci Arena</h2>
-        <p>Hola <strong>${nombre}</strong>, recibimos una solicitud para recuperar tu contraseña.</p>
-        <p>Haz clic en el botón para crear una nueva contraseña:</p>
-        <a href="${url}" style="display:inline-block;margin:20px 0;padding:12px 24px;background:#e94560;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold">
-          Recuperar contraseña
-        </a>
-        <p style="color:#aaa;font-size:0.85rem">Este enlace expira en 1 hora. Si no solicitaste esto, ignora este mensaje.</p>
-      </div>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+      </head>
+      <body style="margin:0;padding:0;background:#0a0e14;font-family:'Rajdhani',Arial,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0e14;padding:40px 20px;">
+          <tr>
+            <td align="center">
+              <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+
+                <!-- Línea roja superior -->
+                <tr>
+                  <td style="height:3px;background:linear-gradient(to right,#FF4655,transparent);"></td>
+                </tr>
+
+                <!-- Contenido principal -->
+                <tr>
+                  <td style="background:#0f1923;border:1px solid rgba(255,70,85,0.25);border-top:none;padding:48px 40px;">
+
+                    <!-- Encabezado -->
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-bottom:8px;">
+                          <div style="width:40px;height:3px;background:#FF4655;margin-bottom:20px;"></div>
+                          <p style="margin:0;color:#FF4655;font-size:11px;letter-spacing:4px;text-transform:uppercase;font-weight:600;">
+                            BOMBERECI ARENA
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-bottom:32px;">
+                          <h1 style="margin:8px 0 0;color:#ffffff;font-size:36px;letter-spacing:3px;text-transform:uppercase;font-weight:700;line-height:1;">
+                            RECUPERAR
+                          </h1>
+                          <h1 style="margin:0;color:#FF4655;font-size:36px;letter-spacing:3px;text-transform:uppercase;font-weight:700;line-height:1;">
+                            CONTRASENA
+                          </h1>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Separador -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                      <tr>
+                        <td style="height:1px;background:linear-gradient(to right,rgba(255,70,85,0.4),transparent);"></td>
+                      </tr>
+                    </table>
+
+                    <!-- Mensaje -->
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-bottom:16px;">
+                          <p style="margin:0;color:#c2c8ce;font-size:15px;line-height:1.7;letter-spacing:0.5px;">
+                            Hola <strong style="color:#ffffff;">${nombre}</strong>,
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-bottom:36px;">
+                          <p style="margin:0;color:#c2c8ce;font-size:15px;line-height:1.7;letter-spacing:0.5px;">
+                            Recibimos una solicitud para restablecer la contrasena de tu cuenta.
+                            Haz clic en el boton para crear una nueva contrasena.
+                            Este enlace expira en <strong style="color:#FF4655;">1 hora</strong>.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Botón -->
+                    <table cellpadding="0" cellspacing="0" style="margin-bottom:36px;">
+                      <tr>
+                        <td>
+                          <a href="${url}"
+                            style="display:inline-block;background:#FF4655;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:4px;text-transform:uppercase;padding:16px 36px;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));">
+                            RECUPERAR CONTRASENA
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Separador -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                      <tr>
+                        <td style="height:1px;background:linear-gradient(to right,rgba(255,70,85,0.4),transparent);"></td>
+                      </tr>
+                    </table>
+
+                    <!-- Aviso -->
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td>
+                          <p style="margin:0;color:#768079;font-size:12px;line-height:1.6;letter-spacing:0.5px;">
+                            Si no solicitaste este cambio, ignora este mensaje. Tu contrasena no sera modificada.
+                            Por seguridad, nunca compartas este enlace con nadie.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="padding:20px 40px;border:1px solid rgba(255,70,85,0.15);border-top:none;background:#0a0e14;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td>
+                          <p style="margin:0;color:#768079;font-size:11px;letter-spacing:2px;text-transform:uppercase;">
+                            BOMBERECI ARENA — SISTEMA DE SEGURIDAD
+                          </p>
+                        </td>
+                        <td align="right">
+                          <p style="margin:0;color:#FF4655;font-size:11px;letter-spacing:2px;text-transform:uppercase;">
+                            CONFIDENCIAL
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Línea roja inferior -->
+                <tr>
+                  <td style="height:3px;background:linear-gradient(to right,#FF4655,transparent);"></td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
     `
   });
 }

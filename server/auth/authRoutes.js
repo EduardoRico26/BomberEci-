@@ -60,12 +60,12 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 // GET /auth/verificar/:token
-router.get('/verificar/:token', async (req, res) => {
+router.get('/verificar/:token', async (req, res) => { 
   try {
     await authService.verificarCorreo(req.params.token);
-    res.redirect('/?verificado=true');
+    res.redirect('http://localhost:5173/login?verificado=true');
   } catch (err) {
-    res.redirect('/?error=token-invalido');
+    res.redirect('http://localhost:5173/login?error=token-invalido');
   }
 });
 
@@ -82,7 +82,7 @@ router.post('/recuperar', async (req, res) => {
 
 // GET /auth/nueva-password/:token
 router.get('/nueva-password/:token', (req, res) => {
-  res.redirect(`/nueva-password.html?token=${req.params.token}`);
+  res.redirect(`/nueva-password?token=${req.params.token}`);
 });
 
 // POST /auth/nueva-password
