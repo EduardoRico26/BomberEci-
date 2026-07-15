@@ -1,10 +1,10 @@
-const express    = require('express');
-const http       = require('http');
-const { Server } = require('socket.io');
+const express      = require('express');
+const http         = require('http');
+const { Server }   = require('socket.io');
 const { createAdapter } = require('@socket.io/redis-adapter');
-const { createClient } = require('redis');
-const path       = require('path');
-const logger     = require('./logger');
+const { createClient }  = require('redis');
+const path         = require('path');
+const logger       = require('./logger');
 const LobbyManager = require('./lobby/LobbyManager');
 const GameRoom     = require('./game/GameRoom');
 const cookieParser = require('cookie-parser');
@@ -14,9 +14,7 @@ const metrics = require('./metrics');
 
 const app    = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' }
-});
+const io     = new Server(server, { cors: { origin: '*' } });
 
 const redisHost = process.env.REDIS_HOST || '172.31.20.209';
 
@@ -40,17 +38,18 @@ const COLORES_VALIDOS = ['azul', 'verde', 'rosado', 'morado'];
 const lobby = new LobbyManager();
 const rooms = new Map();
 
-// ── RUTA PRINCIPAL ──────────────────────────────────────
-
 app.use((req, res, next) => {
-  if (req.method === 'GET' && !req.path.startsWith('/auth') && !req.path.startsWith('/health') && !req.path.startsWith('/metrics') && !req.path.startsWith('/socket.io')) {
+  if (req.method === 'GET'
+    && !req.path.startsWith('/auth')
+    && !req.path.startsWith('/health')
+    && !req.path.startsWith('/metrics')
+    && !req.path.startsWith('/socket.io')) {
     res.sendFile(path.join(__dirname, '../client-react/dist/index.html'));
   } else {
     next();
   }
 });
 
-// ── HEALTH CHECK (para Load Balancer AWS) ───────────────
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
@@ -61,7 +60,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ── MÉTRICAS PROMETHEUS ─────────────────────────────────
 app.get('/metrics', async (req, res) => {
   try {
     res.set('Content-Type', metrics.register.contentType);
@@ -71,23 +69,26 @@ app.get('/metrics', async (req, res) => {
   }
 });
 
-// ── WEBSOCKET ───────────────────────────────────────────
 io.on('connection', (socket) => {
   metrics.jugadoresConectados.inc();
   logger.info({ event: 'player_connected', socketId: socket.id });
-  socket.emit('lista_salas', lobby.getSalasDisponibles());
 
-  socket.on('pedir_salas', () => {
-    socket.emit('lista_salas', lobby.getSalasDisponibles());
+  socket.on('pedir_salas', async () => {
+    socket.emit('lista_salas', await lobby.getSalasDisponibles());
   });
 
-  // ── CREAR SALA ────────────────────────────────────────
-  socket.on('crear_sala', ({ nombre, nombreSala, color }) => {
+  // Enviar lista inicial al conectarse
+  lobby.getSalasDisponibles().then(salas => {
+    socket.emit('lista_salas', salas);
+  });
+
+  // ── CREAR SALA ──────────────────────────────────────
+  socket.on('crear_sala', async ({ nombre, nombreSala, color }) => {
     if (!COLORES_VALIDOS.includes(color)) {
       socket.emit('error_sala', 'Elige un color válido.');
       return;
     }
-    const resultado = lobby.crearSala(nombreSala);
+    const resultado = await lobby.crearSala(nombreSala);
     if (resultado.error) {
       socket.emit('error_sala', resultado.error);
       return;
@@ -97,23 +98,23 @@ io.on('connection', (socket) => {
     rooms.set(salaId, room);
     metrics.salaCreada.inc();
     metrics.salasActivas.set(rooms.size);
-    lobby.unirseASala(salaId, { id: socket.id, nombre, color });
+    await lobby.unirseASala(salaId, { id: socket.id, nombre, color });
     room.agregarJugador(socket.id, nombre, color);
     socket.join(salaId);
     socket.salaId = salaId;
     socket.nombre = nombre;
     socket.emit('sala_creada', { salaId });
-    io.emit('lista_salas', lobby.getSalasDisponibles());
+    io.emit('lista_salas', await lobby.getSalasDisponibles());
     logger.info({ event: 'sala_creada', salaId, creador: nombre });
   });
 
-  // ── UNIRSE A SALA ─────────────────────────────────────
-  socket.on('unirse_sala', ({ salaId, nombre, color }) => {
+  // ── UNIRSE A SALA ───────────────────────────────────
+  socket.on('unirse_sala', async ({ salaId, nombre, color }) => {
     if (!COLORES_VALIDOS.includes(color)) {
       socket.emit('error_sala', 'Elige un color válido.');
       return;
     }
-    const sala = lobby.getSala(salaId);
+    const sala = await lobby.getSala(salaId);
     if (!sala) { socket.emit('error_sala', 'Sala no encontrada'); return; }
     if (sala.jugadores.length >= LobbyManager.MAX_JUGADORES) {
       socket.emit('error_sala', 'Sala llena'); return;
@@ -122,24 +123,27 @@ io.on('connection', (socket) => {
       socket.emit('error_sala', 'Ese color ya está tomado en esta sala.');
       return;
     }
-    lobby.unirseASala(salaId, { id: socket.id, nombre, color });
-    const room = rooms.get(salaId);
+    await lobby.unirseASala(salaId, { id: socket.id, nombre, color });
+
+    let room = rooms.get(salaId);
+    if (!room) {
+      room = new GameRoom(salaId, io, logger);
+      rooms.set(salaId, room);
+    }
     room.agregarJugador(socket.id, nombre, color);
     socket.join(salaId);
     socket.salaId = salaId;
     socket.nombre = nombre;
-    io.emit('lista_salas', lobby.getSalasDisponibles());
+    io.emit('lista_salas', await lobby.getSalasDisponibles());
   });
 
-  // ── INICIAR PARTIDA MANUAL ────────────────────────────
-  socket.on('iniciar_partida_manual', () => {
+  // ── INICIAR PARTIDA MANUAL ──────────────────────────
+  socket.on('iniciar_partida_manual', async () => {
     const salaId = socket.salaId;
     if (!salaId) return;
-
-    const sala = lobby.getSala(salaId);
+    const sala = await lobby.getSala(salaId);
     const room = rooms.get(salaId);
     if (!sala || !room) return;
-
     const dueñoId = sala.jugadores[0]?.id;
     if (socket.id !== dueñoId) {
       socket.emit('error_sala', 'Solo el creador de la sala puede iniciar la partida.');
@@ -149,14 +153,13 @@ io.on('connection', (socket) => {
       socket.emit('error_sala', 'Necesitas al menos 2 jugadores para iniciar.');
       return;
     }
-
     room.reiniciar(sala.jugadores);
     metrics.partidasIniciadas.inc();
     logger.info({ event: 'partida_iniciada', salaId, jugadores: sala.jugadores.length });
     io.to(salaId).emit('iniciar_partida', room.getEstado());
   });
 
-  // ── EVENTOS DE JUEGO ──────────────────────────────────
+  // ── EVENTOS DE JUEGO ────────────────────────────────
   socket.on('mover', ({ direccion }) => {
     const room = rooms.get(socket.salaId);
     if (room) room.moverJugador(socket.id, direccion);
@@ -170,14 +173,13 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ── DESCONEXIÓN ───────────────────────────────────────
-  socket.on('disconnect', () => {
+  // ── DESCONEXIÓN ─────────────────────────────────────
+  socket.on('disconnect', async () => {
     metrics.jugadoresConectados.dec();
     logger.info({ event: 'player_disconnected', socketId: socket.id });
     if (!socket.salaId) return;
-
     const salaId = socket.salaId;
-    lobby.eliminarJugador(socket.id);
+    await lobby.eliminarJugador(socket.id);
     const room = rooms.get(salaId);
     if (room) {
       room.eliminarJugador(socket.id);
@@ -185,7 +187,7 @@ io.on('connection', (socket) => {
     }
     rooms.delete(salaId);
     metrics.salasActivas.set(rooms.size);
-    io.emit('lista_salas', lobby.getSalasDisponibles());
+    io.emit('lista_salas', await lobby.getSalasDisponibles());
   });
 });
 
