@@ -1,6 +1,8 @@
 const express    = require('express');
 const http       = require('http');
 const { Server } = require('socket.io');
+const { createAdapter } = require('@socket.io/redis-adapter');
+const { createClient } = require('redis');
 const path       = require('path');
 const logger     = require('./logger');
 const LobbyManager = require('./lobby/LobbyManager');
@@ -12,8 +14,23 @@ const metrics = require('./metrics');
 
 const app    = express();
 const server = http.createServer(app);
-const io     = new Server(server);
+const io = new Server(server, {
+  cors: { origin: '*' }
+});
 
+const redisHost = process.env.REDIS_HOST || '172.31.20.209';
+
+const pubClient = createClient({ socket: { host: redisHost, port: 6379 } });
+const subClient = pubClient.duplicate();
+
+Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+  io.adapter(createAdapter(pubClient, subClient));
+  logger.info({ event: 'redis_adapter_connected', host: redisHost });
+}).catch(err => {
+  logger.error({ event: 'redis_adapter_error', error: err.message });
+});
+
+app.set('trust proxy', 1);
 app.use(express.static(path.join(__dirname, '../client-react/dist')));
 app.use(express.json());
 app.use(cookieParser());
