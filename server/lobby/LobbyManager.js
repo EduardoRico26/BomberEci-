@@ -5,15 +5,38 @@ require('dotenv').config();
 const redisHost = process.env.REDIS_HOST || '172.31.20.209';
 const MAX_JUGADORES = 4;
 const REDIS_READY_TIMEOUT_MS = 5000;
+const REDIS_RECONNECT_MAX_DELAY_MS = 5000;
 
 const client = createClient({
-  socket: { host: redisHost, port: 6379 }
+  socket: {
+    host: redisHost,
+    port: 6379,
+    // Sin esto, un retries => new Error(...) (o cualquier valor no numérico)
+    // haría que el cliente se rinda para siempre tras la primera falla.
+    // Con backoff exponencial (tope 5s) sigue reintentando indefinidamente,
+    // así que una caída de Redis (reinicio, blip de red) se repara sola.
+    reconnectStrategy: (retries) => {
+      const delay = Math.min(retries * 200, REDIS_RECONNECT_MAX_DELAY_MS);
+      logger.warn({ event: 'redis_lobby_reintentando', intento: retries, esperaMs: delay });
+      return delay;
+    }
+  }
 });
 
-// Sin este listener, cualquier error de socket post-conexión (p.ej. Redis
-// se reinicia) se propaga como excepción no capturada y tumba el proceso.
+// Sin este listener, cualquier error de socket (Redis se reinicia, PM2
+// mata el proceso, se cae la red) se propaga como excepción no capturada
+// y tumba la aplicación entera en vez de solo loguearse y reconectar.
 client.on('error', (err) => {
   logger.error({ event: 'redis_lobby_socket_error', error: err.message });
+});
+client.on('reconnecting', () => {
+  logger.warn({ event: 'redis_lobby_reconectando', host: redisHost });
+});
+client.on('ready', () => {
+  logger.info({ event: 'redis_lobby_ready', host: redisHost });
+});
+client.on('end', () => {
+  logger.warn({ event: 'redis_lobby_conexion_cerrada', host: redisHost });
 });
 
 // El primer evento de Socket.io puede llegar antes de que este connect()
@@ -52,6 +75,17 @@ class LobbyManager {
   // sin límite de tiempo: el arranque decide su propio timeout.
   conectar() {
     return listo;
+  }
+
+  // Cierra la conexión de forma ordenada (a diferencia de dejar que PM2
+  // mate el proceso y el socket se corte a la fuerza, lo que dispara
+  // SocketClosedUnexpectedlyError). Llamar en apagado controlado (SIGTERM).
+  async desconectar() {
+    try {
+      await client.quit();
+    } catch (err) {
+      logger.error({ event: 'redis_lobby_desconectar_error', error: err.message });
+    }
   }
 
   async crearSala(nombre) {

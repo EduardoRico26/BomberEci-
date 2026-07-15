@@ -17,11 +17,35 @@ const server = http.createServer(app);
 const io     = new Server(server, { cors: { origin: '*' } });
 
 const redisHost = process.env.REDIS_HOST || '172.31.20.209';
+const REDIS_ADAPTER_RECONNECT_MAX_DELAY_MS = 5000;
 
-const pubClient = createClient({ socket: { host: redisHost, port: 6379 } });
-const subClient = pubClient.duplicate();
+// reconnectStrategy explícito: sin él, un solo valor no numérico devuelto
+// (o el comportamiento por defecto en algunas versiones) puede hacer que
+// el cliente se rinda para siempre tras la primera desconexión. Con backoff
+// exponencial (tope 5s) el pub/sub del adapter se repara solo si Redis
+// se reinicia o hay un blip de red — sin esto, ambas instancias EC2
+// quedarían des-sincronizadas hasta reiniciar el proceso a mano.
+const pubClient = createClient({
+  socket: {
+    host: redisHost,
+    port: 6379,
+    reconnectStrategy: (retries) => {
+      const delay = Math.min(retries * 200, REDIS_ADAPTER_RECONNECT_MAX_DELAY_MS);
+      logger.warn({ event: 'redis_adapter_reintentando', intento: retries, esperaMs: delay });
+      return delay;
+    }
+  }
+});
+const subClient = pubClient.duplicate(); // hereda el mismo reconnectStrategy
+
+// "SocketClosedUnexpectedlyError" llega por este evento: sin listener se
+// propaga como excepción no capturada y tumba el proceso completo.
 pubClient.on('error', err => logger.error({ event: 'redis_adapter_pub_error', error: err.message }));
 subClient.on('error', err => logger.error({ event: 'redis_adapter_sub_error', error: err.message }));
+pubClient.on('reconnecting', () => logger.warn({ event: 'redis_adapter_pub_reconectando', host: redisHost }));
+subClient.on('reconnecting', () => logger.warn({ event: 'redis_adapter_sub_reconectando', host: redisHost }));
+pubClient.on('ready', () => logger.info({ event: 'redis_adapter_pub_ready', host: redisHost }));
+subClient.on('ready', () => logger.info({ event: 'redis_adapter_sub_ready', host: redisHost }));
 
 const adapterListo = Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
   io.adapter(createAdapter(pubClient, subClient));
@@ -265,3 +289,27 @@ Promise.all([
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
   });
 });
+
+// PM2 manda SIGINT/SIGTERM al reiniciar o detener la app. Sin esto, Node
+// mata el proceso con las conexiones Redis todavía abiertas y el socket se
+// corta a la fuerza (de ahí el SocketClosedUnexpectedlyError en los logs).
+// Cerrando el server y los clientes Redis a mano, el cierre es ordenado.
+let cerrando = false;
+async function apagar(señal) {
+  if (cerrando) return;
+  cerrando = true;
+  logger.info({ event: 'apagando_servidor', señal });
+
+  server.close();
+  await Promise.allSettled([
+    lobby.desconectar(),
+    pubClient.quit(),
+    subClient.quit()
+  ]);
+
+  logger.info({ event: 'servidor_apagado' });
+  process.exit(0);
+}
+
+process.on('SIGINT', () => apagar('SIGINT'));
+process.on('SIGTERM', () => apagar('SIGTERM'));
