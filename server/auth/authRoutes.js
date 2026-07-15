@@ -66,9 +66,9 @@ router.post('/login', loginLimiter, async (req, res) => {
 router.get('/verificar/:token', async (req, res) => {
   try {
     await authService.verificarCorreo(req.params.token);
-    res.redirect('http://localhost:5173/login?verificado=true');
+    res.redirect(`${process.env.APP_URL}:4517/login?verificado=true`);
   } catch (err) {
-    res.redirect('http://localhost:5173/login?error=token-invalido');
+    res.redirect(`${process.env.APP_URL}:4517/login?error=token-invalido`);
   }
 });
 

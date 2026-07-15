@@ -24,8 +24,13 @@ const lobby = new LobbyManager();
 const rooms = new Map();
 
 // ── RUTA PRINCIPAL ──────────────────────────────────────
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client-react/dist/index.html'));
+
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/auth') && !req.path.startsWith('/health') && !req.path.startsWith('/metrics') && !req.path.startsWith('/socket.io')) {
+    res.sendFile(path.join(__dirname, '../client-react/dist/index.html'));
+  } else {
+    next();
+  }
 });
 
 // ── HEALTH CHECK (para Load Balancer AWS) ───────────────
