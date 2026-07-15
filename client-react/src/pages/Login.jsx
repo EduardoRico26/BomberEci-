@@ -158,10 +158,14 @@ export default function Login() {
             gap: '28px'
           }}
         >
+          
           {mensaje && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+          >
+            <div
               style={{
                 fontSize: '0.9rem',
                 padding: '12px 16px',
@@ -176,6 +180,39 @@ export default function Login() {
               }}
             >
               {mensaje.texto}
+            </div>
+
+              {mensaje.texto?.toLowerCase().includes('verificar') && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/auth/reenviar-verificacion', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ correo: form.correo })
+                      });
+                      const data = await res.json();
+                      setMensaje({ tipo: 'exito', texto: data.mensaje });
+                    } catch {
+                      setMensaje({ tipo: 'error', texto: 'Error al reenviar. Intenta de nuevo.' });
+                    }
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#FF4655',
+                    fontSize: '0.72rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0,
+                    textAlign: 'left'
+                  }}
+                >
+                  Reenviar correo de verificación
+                </button>
+              )}
             </motion.div>
           )}
 

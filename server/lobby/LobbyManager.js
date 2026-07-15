@@ -1,3 +1,5 @@
+const MAX_JUGADORES = 4;
+
 class LobbyManager {
   constructor() {
     this.salas = new Map();
@@ -15,7 +17,10 @@ class LobbyManager {
   unirseASala(salaId, jugador) {
     const sala = this.salas.get(salaId);
     if (!sala) return { error: 'Sala no encontrada.' };
-    if (sala.jugadores.length >= 2) return { error: 'Sala llena.' };
+    if (sala.jugadores.length >= MAX_JUGADORES) return { error: 'Sala llena.' };
+    if (sala.jugadores.some(j => j.color === jugador.color)) {
+      return { error: 'Ese color ya está tomado en esta sala.' };
+    }
     sala.jugadores.push(jugador);
     return { ok: true, sala };
   }
@@ -33,9 +38,16 @@ class LobbyManager {
   }
 
   getSalasDisponibles() {
+    // Incluye también salas llenas: el cliente que ya está dentro de una sala
+    // (esperando a que el dueño inicie la partida) necesita seguir viendo su
+    // contador aunque llegue a 4/4. La tabla pública de "unirse" filtra las
+    // llenas del lado del cliente.
     return Array.from(this.salas.values())
-      .filter(s => s.jugadores.length < 2)
-      .map(s => ({ id: s.id, jugadores: s.jugadores.length }));
+      .map(s => ({
+        id: s.id,
+        jugadores: s.jugadores.length,
+        coloresTomados: s.jugadores.map(j => j.color)
+      }));
   }
 
   getSala(salaId) {
@@ -44,3 +56,4 @@ class LobbyManager {
 }
 
 module.exports = LobbyManager;
+module.exports.MAX_JUGADORES = MAX_JUGADORES;

@@ -3,13 +3,15 @@ const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const authService = require('./authService');
 const { verificarToken } = require('./authMiddleware');
+const metrics = require('../metrics');
+const logger = require('../logger');
 
 // Rate limiting para login — máximo 5 intentos por 15 minutos
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   message: { mensaje: 'Demasiados intentos. Espera 15 minutos.' },
-  standardHeaders: true,
+  standardHeaders: true, 
   legacyHeaders: false
 });
 
@@ -28,11 +30,15 @@ router.post('/registro', registroLimiter, async (req, res) => {
       return res.status(400).json({ mensaje: 'Todos los campos son obligatorios.' });
     }
     const usuario = await authService.registrar({ nombre, correo, password });
+    console.log('Usuario registrado, incrementando métrica...');
+    metrics.jugadoresRegistrados.inc();
+    console.log('Métrica incrementada correctamente');
     res.status(201).json({
       mensaje: 'Cuenta creada. Revisa tu correo para verificarla.',
       usuario
     });
   } catch (err) {
+    console.log('Error en registro:', err);
     res.status(err.status || 500).json({ mensaje: err.mensaje || 'Error interno del servidor.' });
   }
 });
@@ -45,14 +51,11 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(400).json({ mensaje: 'Correo y contraseña son obligatorios.' });
     }
     const { token, usuario } = await authService.login({ correo, password });
-
-    // Guardar token en cookie segura
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000 // 24 horas
+      maxAge: 24 * 60 * 60 * 1000
     });
-
     res.json({ mensaje: '¡Bienvenido a BomberEci Arena!', usuario });
   } catch (err) {
     res.status(err.status || 500).json({ mensaje: err.mensaje || 'Error interno del servidor.' });
@@ -60,7 +63,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 // GET /auth/verificar/:token
-router.get('/verificar/:token', async (req, res) => { 
+router.get('/verificar/:token', async (req, res) => {
   try {
     await authService.verificarCorreo(req.params.token);
     res.redirect('http://localhost:5173/login?verificado=true');
@@ -108,6 +111,20 @@ router.post('/logout', (req, res) => {
 // GET /auth/perfil (ruta protegida)
 router.get('/perfil', verificarToken, (req, res) => {
   res.json({ usuario: req.usuario });
+});
+
+// POST /auth/reenviar-verificacion
+router.post('/reenviar-verificacion', async (req, res) => {
+  try {
+    const { correo } = req.body;
+    if (!correo) {
+      return res.status(400).json({ mensaje: 'El correo es obligatorio.' });
+    }
+    await authService.reenviarVerificacion(correo);
+    res.json({ mensaje: 'Correo de verificación reenviado. Revisa tu bandeja.' });
+  } catch (err) {
+    res.status(err.status || 500).json({ mensaje: err.mensaje || 'Error interno.' });
+  }
 });
 
 module.exports = router;

@@ -107,6 +107,14 @@ async function actualizarPassword(id, passwordHash) {
   );
 }
 
+async function actualizarTokenVerificacion(correo, token) {
+  await pool.query(
+    'UPDATE usuarios SET token_verificacion = $1 WHERE correo = $2',
+    [token, correo]
+  );
+}
+
+
 module.exports = {
   crearUsuario,
   buscarPorCorreo,
@@ -116,5 +124,6 @@ module.exports = {
   resetearIntentos,
   guardarTokenRecuperacion,
   buscarPorTokenRecuperacion,
-  actualizarPassword
+  actualizarPassword,
+  actualizarTokenVerificacion
 };

@@ -4,6 +4,17 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import socket from '../socket';
 import PhaserGame from '../game/PhaserGame';
+import { COLORES_JUGADOR } from '../game/coloresJugador';
+
+// "<color>1.1.png" = fila 1 (mirando abajo), paso 1: la misma pose de
+// frente que usa PhaserGame como primer frame de la animación al caminar.
+function SpritePersonaje({ color, ancho = 56 }) {
+  return (
+    <img src={`/game/characters/${color}1.1.png`} alt=""
+      style={{ width: ancho, height: 'auto', imageRendering: 'pixelated' }}
+    />
+  );
+}
 
 export default function Lobby() {
   const { usuario, logout } = useAuth();
@@ -18,6 +29,8 @@ export default function Lobby() {
   const [errorNombre, setErrorNombre] = useState('');
   const [estadoInicial, setEstadoInicial] = useState(null);
   const [salaId, setSalaId] = useState('');
+  const [colorSeleccionado, setColorSeleccionado] = useState('');
+  const [esDueno, setEsDueno] = useState(false);
 
   useEffect(() => {
     socket.connect();
@@ -28,7 +41,8 @@ export default function Lobby() {
     });
     socket.on('sala_creada', ({ salaId }) => {
       setSalaId(salaId);
-      setMensajeEspera(`Sala "${salaId}" creada. Esperando rival...`);
+      setEsDueno(true);
+      setMensajeEspera(`Sala "${salaId}" creada. Esperando jugadores...`);
     });
     socket.on('iniciar_partida', (estado) => {
       setEstadoInicial(estado);
@@ -50,13 +64,14 @@ export default function Lobby() {
     };
   }, []);
 
-  // Filtrar salas en tiempo real
+  // Filtrar salas disponibles (no llenas) en tiempo real para la lista pública de "unirse"
   useEffect(() => {
+    const noLlenas = salas.filter(s => s.jugadores < 4);
     if (!busqueda.trim()) {
-      setSalasFiltradas(salas);
+      setSalasFiltradas(noLlenas);
     } else {
       setSalasFiltradas(
-        salas.filter(s => s.id.toLowerCase().includes(busqueda.toLowerCase()))
+        noLlenas.filter(s => s.id.toLowerCase().includes(busqueda.toLowerCase()))
       );
     }
   }, [busqueda, salas]);
@@ -70,16 +85,43 @@ export default function Lobby() {
       setErrorNombre('El nombre debe tener al menos 3 caracteres.');
       return;
     }
+    if (!colorSeleccionado) {
+      setErrorNombre('Elige un color para tu personaje.');
+      return;
+    }
     setErrorNombre('');
-    socket.emit('crear_sala', { nombre: usuario.nombre, nombreSala: nombreSala.trim() });
+    socket.emit('crear_sala', { nombre: usuario.nombre, nombreSala: nombreSala.trim(), color: colorSeleccionado });
     setMensajeEspera('Creando sala...');
     setVista('crear');
   }
 
-  function unirseSala(id) {
-    socket.emit('unirse_sala', { salaId: id, nombre: usuario.nombre });
+  function elegirSalaParaUnirse(id) {
     setSalaId(id);
-    setMensajeEspera(`Uniéndose a "${id}"...`);
+    setColorSeleccionado('');
+    setErrorNombre('');
+    setVista('elegir-color-unirse');
+  }
+
+  function confirmarUnirse() {
+    if (!colorSeleccionado) {
+      setErrorNombre('Elige un color para tu personaje.');
+      return;
+    }
+    setErrorNombre('');
+    setEsDueno(false);
+    socket.emit('unirse_sala', { salaId, nombre: usuario.nombre, color: colorSeleccionado });
+    setMensajeEspera(`Uniéndose a "${salaId}"...`);
+    setVista('crear');
+  }
+
+  function iniciarPartida() {
+    setErrorNombre('');
+    socket.emit('iniciar_partida_manual');
+  }
+
+  function volverASala() {
+    setMensajeEspera('Partida finalizada. ¡Pueden jugar de nuevo!');
+    setVista('crear');
   }
 
   async function cerrarSesion() {
@@ -94,9 +136,12 @@ export default function Lobby() {
         socket={socket}
         miNombre={usuario.nombre}
         salaId={salaId}
+        onVolverSala={volverASala}
       />
     );
   }
+
+  const jugadoresEnSala = salas.find(s => s.id === salaId)?.jugadores ?? 1;
 
   const lineaRoja = { width: '58px', height: '4px', background: '#FF4655', marginBottom: '18px' };
 
@@ -202,7 +247,7 @@ export default function Lobby() {
 
                 {/* Card Crear */}
                 <motion.div whileHover={{ y: -6 }} whileTap={{ scale: 0.98 }}
-                  onClick={() => { setErrorNombre(''); setVista('nombre-sala'); }}
+                  onClick={() => { setErrorNombre(''); setEsDueno(false); setVista('nombre-sala'); }}
                   style={{
                     cursor: 'pointer', textAlign: 'left', color: 'white',
                     minHeight: '240px', padding: '28px',
@@ -224,7 +269,7 @@ export default function Lobby() {
 
                 {/* Card Unirse */}
                 <motion.div whileHover={{ y: -6 }} whileTap={{ scale: 0.98 }}
-                  onClick={() => { setBusqueda(''); setMensajeEspera(''); setVista('unirse'); }}
+                  onClick={() => { setBusqueda(''); setMensajeEspera(''); setEsDueno(false); setVista('unirse'); }}
                   style={{
                     cursor: 'pointer', textAlign: 'left', color: 'white',
                     minHeight: '240px', padding: '28px',
@@ -278,21 +323,48 @@ export default function Lobby() {
                   onFocus={e => e.target.style.borderBottomColor = '#FF4655'}
                   onBlur={e => e.target.style.borderBottomColor = '#768079'}
                 />
-                {errorNombre && (
-                  <p style={{ color: '#FF4655', fontSize: '0.78rem', margin: '4px 0 0' }}>
-                    {errorNombre}
-                  </p>
-                )}
                 <p style={{ color: '#768079', fontSize: '0.72rem', margin: '4px 0 0' }}>
                   El nombre se convertirá a mayúsculas. Máximo 20 caracteres.
                 </p>
               </div>
 
+              <div style={{ marginBottom: '28px' }}>
+                <label style={{ color: '#768079', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.15em', display: 'block', marginBottom: '10px' }}>
+                  Color de tu personaje
+                </label>
+                <div style={{ display: 'flex', gap: '14px' }}>
+                  {COLORES_JUGADOR.map(c => (
+                    <button key={c.id}
+                      onClick={() => { setColorSeleccionado(c.id); setErrorNombre(''); }}
+                      style={{
+                        cursor: 'pointer', width: '68px', padding: '8px 4px 6px',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                        background: 'rgba(255,255,255,0.03)', borderRadius: '6px',
+                        border: colorSeleccionado === c.id ? '2px solid white' : '2px solid transparent',
+                        boxShadow: colorSeleccionado === c.id ? `0 0 14px ${c.css}` : 'none',
+                        transition: 'all 0.15s'
+                      }}
+                      title={c.nombre}
+                      aria-label={c.nombre}
+                    >
+                      <SpritePersonaje color={c.id} />
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: c.css }} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {errorNombre && (
+                <p style={{ color: '#FF4655', fontSize: '0.78rem', margin: '0 0 16px' }}>
+                  {errorNombre}
+                </p>
+              )}
+
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button onClick={crearSala} className="btn-val" style={{ fontSize: '0.85rem' }}>
                   CREAR SALA
                 </button>
-                <button onClick={() => { setNombreSala(''); setErrorNombre(''); setVista('menu'); }}
+                <button onClick={() => { setNombreSala(''); setErrorNombre(''); setColorSeleccionado(''); setVista('menu'); }}
                   className="btn-val-outline" style={{ fontSize: '0.76rem' }}>
                   VOLVER
                 </button>
@@ -311,13 +383,16 @@ export default function Lobby() {
 
               <div style={lineaRoja}/>
               <p style={{ color: '#FF4655', fontSize: '0.78rem', letterSpacing: '0.15em', textTransform: 'uppercase', margin: '0 0 10px' }}>
-                Sala privada
+                Sala "{salaId}"
               </p>
               <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '4rem', letterSpacing: '0.07em', lineHeight: 0.95, margin: 0 }}>
-                BUSCANDO RIVAL
+                ESPERANDO JUGADORES
               </h1>
-              <p style={{ color: '#c2c8ce', fontSize: '1rem', lineHeight: 1.6, margin: '18px 0 26px' }}>
-                {mensajeEspera || 'Esperando rival...'}
+              <p style={{ color: '#c2c8ce', fontSize: '1rem', lineHeight: 1.6, margin: '18px 0 8px' }}>
+                {mensajeEspera || 'Esperando jugadores...'}
+              </p>
+              <p style={{ color: '#FF4655', fontFamily: "'Bebas Neue', cursive", fontSize: '1.3rem', letterSpacing: '0.08em', margin: '0 0 26px' }}>
+                {jugadoresEnSala}/4 CONECTADOS
               </p>
 
               <div style={{ display: 'flex', gap: '8px', marginBottom: '30px' }}>
@@ -330,7 +405,25 @@ export default function Lobby() {
                 ))}
               </div>
 
-              <button onClick={() => { setNombreSala(''); setVista('menu'); }}
+              {esDueno && (
+                <div style={{ marginBottom: '16px' }}>
+                  <button onClick={iniciarPartida} disabled={jugadoresEnSala < 2}
+                    className="btn-val" style={{
+                      fontSize: '0.85rem',
+                      opacity: jugadoresEnSala < 2 ? 0.4 : 1,
+                      cursor: jugadoresEnSala < 2 ? 'not-allowed' : 'pointer'
+                    }}>
+                    INICIAR PARTIDA
+                  </button>
+                  {jugadoresEnSala < 2 && (
+                    <p style={{ color: '#768079', fontSize: '0.72rem', margin: '8px 0 0' }}>
+                      Necesitas al menos 2 jugadores para iniciar.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <button onClick={() => { setNombreSala(''); setEsDueno(false); setVista('menu'); }}
                 className="btn-val-outline" style={{ fontSize: '0.76rem' }}>
                 CANCELAR
               </button>
@@ -401,7 +494,7 @@ export default function Lobby() {
                   salasFiltradas.map((sala) => (
                     <motion.button key={sala.id}
                       whileHover={{ backgroundColor: 'rgba(255, 70, 85, 0.12)' }}
-                      onClick={() => unirseSala(sala.id)}
+                      onClick={() => elegirSalaParaUnirse(sala.id)}
                       style={{
                         width: '100%', cursor: 'pointer',
                         display: 'grid', gridTemplateColumns: '1.5fr 0.7fr 0.9fr',
@@ -415,7 +508,7 @@ export default function Lobby() {
                         {sala.id}
                       </span>
                       <span style={{ color: '#c2c8ce', fontSize: '0.9rem' }}>
-                        {sala.jugadores}/2
+                        {sala.jugadores}/4
                       </span>
                       <span style={{ color: '#FF4655', fontSize: '0.7rem', letterSpacing: '0.11em', textTransform: 'uppercase' }}>
                         Disponible
@@ -435,6 +528,71 @@ export default function Lobby() {
                 className="btn-val-outline" style={{ fontSize: '0.76rem', marginTop: '24px' }}>
                 VOLVER
               </button>
+            </motion.section>
+          )}
+
+          {/* ELEGIR COLOR PARA UNIRSE */}
+          {vista === 'elegir-color-unirse' && (
+            <motion.section key="elegir-color-unirse"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.35 }}
+              style={{ width: 'min(440px, 100%)' }}>
+
+              <div style={lineaRoja}/>
+              <p style={{ color: '#FF4655', fontSize: '0.78rem', letterSpacing: '0.15em', textTransform: 'uppercase', margin: '0 0 10px' }}>
+                Sala "{salaId}"
+              </p>
+              <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '3.2rem', letterSpacing: '0.07em', lineHeight: 0.95, margin: '0 0 28px' }}>
+                ELIGE TU COLOR
+              </h1>
+
+              <div style={{ marginBottom: '10px' }}>
+                <div style={{ display: 'flex', gap: '14px' }}>
+                  {COLORES_JUGADOR.map(c => {
+                    const salaActual = salasFiltradas.find(s => s.id === salaId) || salas.find(s => s.id === salaId);
+                    const tomado = salaActual?.coloresTomados?.includes(c.id);
+                    return (
+                      <button key={c.id}
+                        disabled={tomado}
+                        onClick={() => { setColorSeleccionado(c.id); setErrorNombre(''); }}
+                        style={{
+                          cursor: tomado ? 'not-allowed' : 'pointer',
+                          width: '68px', padding: '8px 4px 6px',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                          background: 'rgba(255,255,255,0.03)', borderRadius: '6px',
+                          opacity: tomado ? 0.25 : 1,
+                          border: colorSeleccionado === c.id ? '2px solid white' : '2px solid transparent',
+                          boxShadow: colorSeleccionado === c.id ? `0 0 14px ${c.css}` : 'none',
+                          transition: 'all 0.15s'
+                        }}
+                        title={tomado ? `${c.nombre} (ocupado)` : c.nombre}
+                        aria-label={c.nombre}
+                      >
+                        <SpritePersonaje color={c.id} />
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: c.css }} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {errorNombre && (
+                <p style={{ color: '#FF4655', fontSize: '0.78rem', margin: '10px 0 0' }}>
+                  {errorNombre}
+                </p>
+              )}
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '28px' }}>
+                <button onClick={confirmarUnirse} className="btn-val" style={{ fontSize: '0.85rem' }}>
+                  UNIRSE
+                </button>
+                <button onClick={() => { setColorSeleccionado(''); setErrorNombre(''); setVista('unirse'); }}
+                  className="btn-val-outline" style={{ fontSize: '0.76rem' }}>
+                  VOLVER
+                </button>
+              </div>
             </motion.section>
           )}
 
