@@ -55,6 +55,43 @@ const adapterListo = Promise.all([pubClient.connect(), subClient.connect()]).the
   throw err;
 });
 
+// ── SINCRONIZAR "lista_salas" ENTRE INSTANCIAS ───────────
+// El cliente `subClient` ya está dedicado a los canales internos del
+// adapter de Socket.io; se usa un cliente aparte para no acoplar nuestro
+// propio pub/sub a su ciclo de vida. Cuando cualquier instancia crea, une
+// o elimina jugadores de una sala, publica en este canal; cada instancia
+// (incluida la que publicó) recibe el aviso, relee Redis y emite
+// 'lista_salas' a SUS propios clientes conectados.
+const CANAL_SALAS = 'salas:actualizar';
+const salasSubClient = pubClient.duplicate();
+
+salasSubClient.on('error', err => logger.error({ event: 'redis_salas_sub_error', error: err.message }));
+salasSubClient.on('reconnecting', () => logger.warn({ event: 'redis_salas_sub_reconectando', host: redisHost }));
+salasSubClient.on('ready', () => logger.info({ event: 'redis_salas_sub_ready', host: redisHost }));
+
+const salasSubListo = salasSubClient.connect().then(async () => {
+  await salasSubClient.subscribe(CANAL_SALAS, async () => {
+    try {
+      const salas = await lobby.getSalasDisponibles();
+      io.emit('lista_salas', salas);
+    } catch (err) {
+      logger.error({ event: 'redis_salas_sub_handler_error', error: err.message });
+    }
+  });
+  logger.info({ event: 'redis_salas_sub_suscrito', canal: CANAL_SALAS });
+}).catch(err => {
+  logger.error({ event: 'redis_salas_sub_connect_error', error: err.message });
+  throw err;
+});
+
+async function difundirListaSalas() {
+  try {
+    await pubClient.publish(CANAL_SALAS, '1');
+  } catch (err) {
+    logger.error({ event: 'redis_publish_salas_error', error: err.message });
+  }
+}
+
 app.set('trust proxy', 1);
 app.use(express.static(path.join(__dirname, '../client-react/dist')));
 app.use(express.json());
@@ -142,7 +179,7 @@ io.on('connection', (socket) => {
       socket.salaId = salaId;
       socket.nombre = nombre;
       socket.emit('sala_creada', { salaId });
-      io.emit('lista_salas', await lobby.getSalasDisponibles());
+      await difundirListaSalas();
       logger.info({ event: 'sala_creada', salaId, creador: nombre, socketId: socket.id });
     } catch (err) {
       logger.error({ event: 'crear_sala_error', nombreSala, socketId: socket.id, error: err.message, stack: err.stack });
@@ -185,7 +222,7 @@ io.on('connection', (socket) => {
       socket.join(salaId);
       socket.salaId = salaId;
       socket.nombre = nombre;
-      io.emit('lista_salas', await lobby.getSalasDisponibles());
+      await difundirListaSalas();
       logger.info({ event: 'jugador_unido_sala', salaId, nombre, socketId: socket.id });
     } catch (err) {
       logger.error({ event: 'unirse_sala_error', salaId, socketId: socket.id, error: err.message, stack: err.stack });
@@ -249,7 +286,7 @@ io.on('connection', (socket) => {
         io.to(salaId).emit('jugador_salio', { socketId: socket.id });
       }
       metrics.salasActivas.set(rooms.size);
-      io.emit('lista_salas', await lobby.getSalasDisponibles());
+      await difundirListaSalas();
     } catch (err) {
       logger.error({ event: 'disconnect_error', salaId, socketId: socket.id, error: err.message, stack: err.stack });
     }
@@ -282,7 +319,8 @@ function conLimite(promesa, etiqueta) {
 // vuelve a intentarlo y reporta su propio error al jugador.
 Promise.all([
   conLimite(adapterListo, 'adapter'),
-  conLimite(lobby.conectar(), 'lobby')
+  conLimite(lobby.conectar(), 'lobby'),
+  conLimite(salasSubListo, 'salas_sub')
 ]).then(() => {
   server.listen(PORT, () => {
     logger.info({ event: 'server_started', port: PORT });
@@ -304,7 +342,8 @@ async function apagar(señal) {
   await Promise.allSettled([
     lobby.desconectar(),
     pubClient.quit(),
-    subClient.quit()
+    subClient.quit(),
+    salasSubClient.quit()
   ]);
 
   logger.info({ event: 'servidor_apagado' });
