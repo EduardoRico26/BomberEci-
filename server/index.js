@@ -169,12 +169,13 @@ io.on('connection', (socket) => {
 
       const salaId = resultado.salaId;
       const room = new GameRoom(salaId, io, logger);
+      await room.inicializar();
       rooms.set(salaId, room);
       metrics.salaCreada.inc();
       metrics.salasActivas.set(rooms.size);
 
       await lobby.unirseASala(salaId, { id: socket.id, nombre, color });
-      room.agregarJugador(socket.id, nombre, color);
+      await room.agregarJugador(socket.id, nombre, color);
       socket.join(salaId);
       socket.salaId = salaId;
       socket.nombre = nombre;
@@ -216,9 +217,12 @@ io.on('connection', (socket) => {
       let room = rooms.get(salaId);
       if (!room) {
         room = new GameRoom(salaId, io, logger);
+        // La sala pudo haber sido creada en otra instancia: reutiliza su
+        // estado de Redis en vez de regenerar el mapa desde cero.
+        await room.inicializar();
         rooms.set(salaId, room);
       }
-      room.agregarJugador(socket.id, nombre, color);
+      await room.agregarJugador(socket.id, nombre, color);
       socket.join(salaId);
       socket.salaId = salaId;
       socket.nombre = nombre;
@@ -248,10 +252,10 @@ io.on('connection', (socket) => {
         socket.emit('error_sala', 'Necesitas al menos 2 jugadores para iniciar.');
         return;
       }
-      room.reiniciar(sala.jugadores);
+      const estado = await room.reiniciar(sala.jugadores);
       metrics.partidasIniciadas.inc();
       logger.info({ event: 'partida_iniciada', salaId, jugadores: sala.jugadores.length });
-      io.to(salaId).emit('iniciar_partida', room.getEstado());
+      io.to(salaId).emit('iniciar_partida', estado);
     } catch (err) {
       logger.error({ event: 'iniciar_partida_error', salaId, socketId: socket.id, error: err.message, stack: err.stack });
       socket.emit('error_sala', 'Error interno al iniciar la partida. Intenta de nuevo.');
@@ -259,16 +263,24 @@ io.on('connection', (socket) => {
   });
 
   // ── EVENTOS DE JUEGO ────────────────────────────────
-  socket.on('mover', ({ direccion }) => {
+  socket.on('mover', async ({ direccion }) => {
     const room = rooms.get(socket.salaId);
-    if (room) room.moverJugador(socket.id, direccion);
+    if (!room) return;
+    try {
+      await room.moverJugador(socket.id, direccion);
+    } catch (err) {
+      logger.error({ event: 'mover_error', salaId: socket.salaId, socketId: socket.id, error: err.message });
+    }
   });
 
-  socket.on('bomba', () => {
+  socket.on('bomba', async () => {
     const room = rooms.get(socket.salaId);
-    if (room) {
-      room.colocarBomba(socket.id);
+    if (!room) return;
+    try {
+      await room.colocarBomba(socket.id);
       metrics.bombasColocadas.inc();
+    } catch (err) {
+      logger.error({ event: 'bomba_error', salaId: socket.salaId, socketId: socket.id, error: err.message });
     }
   });
 
@@ -279,12 +291,25 @@ io.on('connection', (socket) => {
     if (!socket.salaId) return;
     const salaId = socket.salaId;
     try {
+      // lobby.eliminarJugador ya borra la sala del LobbyManager/Redis si
+      // queda sin jugadores; se usa ese resultado como fuente de verdad
+      // (el roster del lobby vive durante todo el juego, no solo antes de
+      // iniciar) para decidir si también hay que borrar el GameRoom.
       await lobby.eliminarJugador(socket.id);
       const room = rooms.get(salaId);
       if (room) {
-        room.eliminarJugador(socket.id);
+        await room.eliminarJugador(socket.id);
         io.to(salaId).emit('jugador_salio', { socketId: socket.id });
       }
+
+      const salaRestante = await lobby.getSala(salaId);
+      if (!salaRestante) {
+        if (room) room.destruirLocal();
+        await GameRoom.eliminarEstado(salaId);
+        rooms.delete(salaId);
+        logger.info({ event: 'sala_vacia_eliminada', salaId });
+      }
+
       metrics.salasActivas.set(rooms.size);
       await difundirListaSalas();
     } catch (err) {

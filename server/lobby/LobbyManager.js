@@ -185,5 +185,10 @@ class LobbyManager {
   }
 }
 
+// Se expone el mismo cliente/promesa de conexión para que GameRoom (estado
+// de partida) reutilice la conexión de Redis del LobbyManager en vez de
+// abrir una segunda conexión redundante hacia 172.31.20.209.
 LobbyManager.MAX_JUGADORES = MAX_JUGADORES;
+LobbyManager.redisClient = client;
+LobbyManager.esperarListo = esperarListo;
 module.exports = LobbyManager;
