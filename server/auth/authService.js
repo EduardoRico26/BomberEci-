@@ -25,7 +25,7 @@ function generarToken() {
 // Enviar email de verificación
 
 async function enviarEmailVerificacion(correo, nombre, token) {
-  const url = `http://localhost:3000/auth/verificar/${token}`;
+  const url = `http://localhost:5173/auth/verificar/${token}`;
   await transporter.sendMail({
     from: `"BomberEci Arena" <${process.env.EMAIL_USER}>`,
     to: correo,
@@ -433,10 +433,22 @@ async function resetearPassword(token, nuevaPassword) {
   await db.actualizarPassword(usuario.id, passwordHash);
 }
 
+async function reenviarVerificacion(correo) {
+  const usuario = await db.buscarPorCorreo(correo);
+  if (!usuario) return;
+  if (usuario.verificado) {
+    throw { status: 400, mensaje: 'Este correo ya está verificado.' };
+  }
+  const tokenVerificacion = generarToken();
+  await db.actualizarTokenVerificacion(correo, tokenVerificacion);
+  await enviarEmailVerificacion(correo, usuario.nombre, tokenVerificacion);
+}
+
 module.exports = {
   registrar,
   login,
   verificarCorreo,
   solicitarRecuperacion,
-  resetearPassword
+  resetearPassword,
+  reenviarVerificacion
 };
