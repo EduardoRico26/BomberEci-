@@ -1,6 +1,7 @@
 const { generarMapa, procesarMovimiento, colocarBomba, explotarBomba, verificarGanador } = require('./GameEngine');
 const metrics = require('../metrics');
 const LobbyManager = require('../lobby/LobbyManager');
+const { WatchError } = require('redis');
 
 // Misma conexión Redis que usa LobbyManager (172.31.20.209:6379): así el
 // estado de partida vive en Redis y cualquier instancia EC2 detrás del LB
@@ -10,12 +11,13 @@ const esperarListo = LobbyManager.esperarListo;
 
 const GAMEROOM_PREFIX = 'gameroom:';
 const GAMEROOM_TTL_SEGUNDOS = 3600;
+const MAX_REINTENTOS_TRANSACCION = 8;
 
 const SPAWNS = [
   { x: 1, y: 1 },
-  { x: 13, y: 11 },
-  { x: 13, y: 1 },
-  { x: 1, y: 11 }
+  { x: 11, y: 1 },
+  { x: 1, y: 11 },
+  { x: 11, y: 11 }
 ];
 
 class GameRoom {
@@ -23,9 +25,6 @@ class GameRoom {
     this.salaId = salaId;
     this.io = io;
     this.logger = logger;
-    // Timers de explosión: solo existen en la instancia que colocó la bomba.
-    // La emisión del resultado (io.to(...).emit) llega a todas las
-    // instancias vía el adapter de Redis de Socket.io.
     this.timers = new Map();
   }
 
@@ -33,9 +32,6 @@ class GameRoom {
     return `${GAMEROOM_PREFIX}${salaId}`;
   }
 
-  // Borra el estado de una sala en Redis aunque esta instancia nunca haya
-  // tenido un GameRoom local para ella (p.ej. el último jugador se
-  // desconectó de una instancia distinta a la que creó la sala).
   static async eliminarEstado(salaId) {
     await esperarListo();
     await redisClient.del(GameRoom.redisKey(salaId));
@@ -52,43 +48,97 @@ class GameRoom {
     await redisClient.set(GameRoom.redisKey(this.salaId), JSON.stringify(estado), { EX: GAMEROOM_TTL_SEGUNDOS });
   }
 
-  // Si otra instancia ya inicializó esta sala en Redis, reutiliza ese
-  // estado en vez de regenerar el mapa y perder jugadores/bombas.
-  async inicializar() {
-    let estado = await this._leerEstado();
-    if (!estado) {
-      estado = { mapa: generarMapa(), jugadores: [], bombas: [] };
-      await this._guardarEstado(estado);
+  async _actualizarEstado(mutator) {
+    await esperarListo();
+    const key = GameRoom.redisKey(this.salaId);
+
+    for (let intento = 0; intento < MAX_REINTENTOS_TRANSACCION; intento++) {
+      let resultadoMutador;
+      let estadoMutado = null;
+
+      try {
+        const execResult = await redisClient.executeIsolated(async (isolatedClient) => {
+          await isolatedClient.watch(key);
+          const data = await isolatedClient.get(key);
+
+          if (!data) {
+            await isolatedClient.unwatch();
+            return null;
+          }
+
+          const estado = JSON.parse(data);
+          resultadoMutador = await mutator(estado);
+          estadoMutado = estado;
+
+          return isolatedClient
+            .multi()
+            .set(key, JSON.stringify(estado), { EX: GAMEROOM_TTL_SEGUNDOS })
+            .exec();
+        });
+
+        if (execResult === null && estadoMutado === null) {
+          return { estado: null, resultado: undefined };
+        }
+        return { estado: estadoMutado, resultado: resultadoMutador };
+      } catch (err) {
+        if (err instanceof WatchError) {
+          continue;
+        }
+        throw err;
+      }
     }
-    return estado;
+
+    throw new Error(
+      `No se pudo actualizar el estado de la sala ${this.salaId} tras ${MAX_REINTENTOS_TRANSACCION} intentos (alta contención)`
+    );
+  }
+
+  async inicializar() {
+    await esperarListo();
+    const key = GameRoom.redisKey(this.salaId);
+    const estadoInicial = { mapa: generarMapa(), jugadores: [], bombas: [] };
+
+    const creado = await redisClient.set(key, JSON.stringify(estadoInicial), {
+      EX: GAMEROOM_TTL_SEGUNDOS,
+      NX: true
+    });
+
+    if (creado) return estadoInicial;
+    return await this._leerEstado();
   }
 
   async agregarJugador(socketId, nombre, color) {
-    const estado = await this.inicializar();
-    const spawn = SPAWNS[estado.jugadores.length] || SPAWNS[0];
-    const jugador = {
-      id: socketId,
-      nombre,
-      color,
-      x: spawn.x,
-      y: spawn.y,
-      vivo: true,
-      radio: 2,
-      maxBombas: 1
-    };
-    estado.jugadores.push(jugador);
-    await this._guardarEstado(estado);
+    await this.inicializar();
+
+    let jugadorNuevo = null;
+    await this._actualizarEstado((estado) => {
+      const spawn = SPAWNS[estado.jugadores.length] || SPAWNS[0];
+      jugadorNuevo = {
+        id: socketId,
+        nombre,
+        color,
+        x: spawn.x,
+        y: spawn.y,
+        vivo: true,
+        radio: 2,
+        maxBombas: 1
+      };
+      estado.jugadores.push(jugadorNuevo);
+    });
+
     this.logger.info({ event: 'jugador_unido', salaId: this.salaId, nombre, socketId });
-    return jugador;
+    return jugadorNuevo;
   }
 
   async moverJugador(socketId, direccion) {
     const inicio = Date.now();
-    const estado = await this._leerEstado();
-    if (!estado) return;
-    const jugador = procesarMovimiento(estado, socketId, direccion);
-    if (jugador) {
-      await this._guardarEstado(estado);
+    let jugadorMovido = null;
+
+    const { estado } = await this._actualizarEstado((estadoActual) => {
+      jugadorMovido = procesarMovimiento(estadoActual, socketId, direccion);
+    });
+
+    if (jugadorMovido && estado) {
       const latencia = Date.now() - inicio;
       metrics.latenciaWebSocket.observe(latencia);
       this.io.to(this.salaId).emit('estado_juego', estado);
@@ -96,21 +146,25 @@ class GameRoom {
   }
 
   async colocarBomba(socketId) {
-    const estado = await this._leerEstado();
-    if (!estado) return;
-    const bomba = colocarBomba(estado, socketId);
-    if (!bomba) return;
+    let bombaColocada = null;
 
-    await this._guardarEstado(estado);
-    this.logger.info({ event: 'bomba_colocada', salaId: this.salaId, socketId, x: bomba.x, y: bomba.y });
+    const { estado } = await this._actualizarEstado((estadoActual) => {
+      bombaColocada = colocarBomba(estadoActual, socketId);
+    });
+
+    if (!bombaColocada || !estado) return;
+
+    this.logger.info({ event: 'bomba_colocada', salaId: this.salaId, socketId, x: bombaColocada.x, y: bombaColocada.y });
     this.io.to(this.salaId).emit('estado_juego', estado);
 
     const timer = setTimeout(async () => {
       try {
-        const estadoActual = await this._leerEstado();
-        if (!estadoActual) return;
-        const resultado = explotarBomba(estadoActual, bomba);
-        await this._guardarEstado(estadoActual);
+        let resultado = null;
+        const { estado: estadoTrasExplosion } = await this._actualizarEstado((estadoActual) => {
+          resultado = explotarBomba(estadoActual, bombaColocada);
+        });
+
+        if (!estadoTrasExplosion) return;
 
         if (resultado.eliminados.length > 0) {
           metrics.jugadoresEliminados.inc(resultado.eliminados.length);
@@ -118,10 +172,10 @@ class GameRoom {
         }
 
         this.io.to(this.salaId).emit('explosion', { celdas: resultado.celdas, eliminados: resultado.eliminados });
-        this.io.to(this.salaId).emit('estado_juego', estadoActual);
+        this.io.to(this.salaId).emit('estado_juego', estadoTrasExplosion);
 
         if (resultado.eliminados.length > 0) {
-          const ganador = verificarGanador(estadoActual);
+          const ganador = verificarGanador(estadoTrasExplosion);
           if (ganador) {
             const nombre = ganador === 'empate' ? 'empate' : ganador.nombre;
             metrics.partidasCompletadas.inc();
@@ -132,26 +186,27 @@ class GameRoom {
       } catch (err) {
         this.logger.error({ event: 'explosion_error', salaId: this.salaId, error: err.message });
       } finally {
-        this.timers.delete(bomba.id);
+        this.timers.delete(bombaColocada.id);
       }
-    }, bomba.timer);
+    }, bombaColocada.timer);
 
-    this.timers.set(bomba.id, timer);
+    this.timers.set(bombaColocada.id, timer);
   }
 
-  // Devuelve la cantidad de jugadores restantes para que quien llame
-  // decida si hay que eliminar la sala.
   async eliminarJugador(socketId) {
-    const estado = await this._leerEstado();
-    if (!estado) return 0;
-    estado.jugadores = estado.jugadores.filter(j => j.id !== socketId);
-    await this._guardarEstado(estado);
+    let restantes = 0;
+
+    const { estado } = await this._actualizarEstado((estadoActual) => {
+      estadoActual.jugadores = estadoActual.jugadores.filter((j) => j.id !== socketId);
+      restantes = estadoActual.jugadores.length;
+    });
+
     this.logger.info({ event: 'jugador_salio', salaId: this.salaId, socketId });
-    return estado.jugadores.length;
+    return estado ? restantes : 0;
   }
 
   async reiniciar(jugadoresSala) {
-    this.timers.forEach(timer => clearTimeout(timer));
+    this.timers.forEach((timer) => clearTimeout(timer));
     this.timers.clear();
 
     const estado = {
@@ -171,6 +226,7 @@ class GameRoom {
         };
       })
     };
+
     await this._guardarEstado(estado);
     this.logger.info({ event: 'partida_reiniciada', salaId: this.salaId, jugadores: estado.jugadores.length });
     return estado;
@@ -180,10 +236,8 @@ class GameRoom {
     return await this._leerEstado();
   }
 
-  // Limpieza local (timers de esta instancia) al eliminar la sala; el
-  // borrado del estado en Redis lo hace GameRoom.eliminarEstado().
   destruirLocal() {
-    this.timers.forEach(timer => clearTimeout(timer));
+    this.timers.forEach((timer) => clearTimeout(timer));
     this.timers.clear();
   }
 }
