@@ -6,19 +6,21 @@ const { verificarToken } = require('./authMiddleware');
 const metrics = require('../metrics');
 const logger = require('../logger');
 
-// Rate limiting para login — máximo 5 intentos por 15 minutos
+// Rate limiting para login — máximo 5 intentos por 3 minutos por IP real
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 3 * 60 * 1000,
   max: 5,
-  message: { mensaje: 'Demasiados intentos. Espera 15 minutos.' },
-  standardHeaders: true, 
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip,
+  message: { mensaje: 'Demasiados intentos. Espera 3 minutos.' },
+  standardHeaders: true,
   legacyHeaders: false
 });
 
-// Rate limiting para registro
+// Rate limiting para registro — máximo 10 registros por hora por IP real
 const registroLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip,
   message: { mensaje: 'Demasiados registros desde esta IP.' }
 });
 
