@@ -66,9 +66,9 @@ router.post('/login', loginLimiter, async (req, res) => {
 router.get('/verificar/:token', async (req, res) => {
   try {
     await authService.verificarCorreo(req.params.token);
-    res.redirect('http://alb-bombereci-457767058.us-east-1.elb.amazonaws.com/login?verificado=true');
+    res.redirect(`${process.env.APP_URL}:4517/login?verificado=true`);
   } catch (err) {
-    res.redirect('http://alb-bombereci-457767058.us-east-1.elb.amazonaws.com/login?error=token-invalido');
+    res.redirect(`${process.env.APP_URL}:4517/login?error=token-invalido`);
   }
 });
 
