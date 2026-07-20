@@ -25,7 +25,7 @@ function generarToken() {
 // Enviar email de verificación
 
 async function enviarEmailVerificacion(correo, nombre, token) {
-  const url = `http://alb-bombereci-457767058.us-east-1.elb.amazonaws.com/auth/verificar/${token}`;
+  const url = `${process.env.APP_URL}/auth/verificar/${token}`;
   await transporter.sendMail({
     from: `"BomberEci Arena" <${process.env.EMAIL_USER}>`,
     to: correo,
@@ -172,7 +172,7 @@ async function enviarEmailVerificacion(correo, nombre, token) {
 
 // Enviar email de recuperación de contraseña
 async function enviarEmailRecuperacion(correo, nombre, token) {
-  const url = `http://alb-bombereci-457767058.us-east-1.elb.amazonaws.com/nueva-password?token=${token}`;
+  const url = `${process.env.APP_URL}/nueva-password?token=${token}`;
   await transporter.sendMail({
     from: `"BomberEci Arena" <${process.env.EMAIL_USER}>`,
     to: correo,
