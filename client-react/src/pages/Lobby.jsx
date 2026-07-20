@@ -31,6 +31,7 @@ export default function Lobby() {
   const [salaId, setSalaId] = useState('');
   const [colorSeleccionado, setColorSeleccionado] = useState('');
   const [esDueno, setEsDueno] = useState(false);
+  const [jugadoresSala, setJugadoresSala] = useState([]);
 
   useEffect(() => {
     socket.connect();
@@ -43,6 +44,9 @@ export default function Lobby() {
       setSalaId(salaId);
       setEsDueno(true);
       setMensajeEspera(`Sala "${salaId}" creada. Esperando jugadores...`);
+    });
+    socket.on('jugadores_sala', (jugadores) => {
+      setJugadoresSala(jugadores);
     });
     socket.on('iniciar_partida', (estado) => {
       setEstadoInicial(estado);
@@ -58,6 +62,7 @@ export default function Lobby() {
       socket.off('connect');
       socket.off('lista_salas');
       socket.off('sala_creada');
+      socket.off('jugadores_sala');
       socket.off('iniciar_partida');
       socket.off('error_sala');
       socket.disconnect();
@@ -90,6 +95,7 @@ export default function Lobby() {
       return;
     }
     setErrorNombre('');
+    setJugadoresSala([]);
     socket.emit('crear_sala', { nombre: usuario.nombre, nombreSala: nombreSala.trim(), color: colorSeleccionado });
     setMensajeEspera('Creando sala...');
     setVista('crear');
@@ -109,6 +115,7 @@ export default function Lobby() {
     }
     setErrorNombre('');
     setEsDueno(false);
+    setJugadoresSala([]);
     socket.emit('unirse_sala', { salaId, nombre: usuario.nombre, color: colorSeleccionado });
     setMensajeEspera(`Uniéndose a "${salaId}"...`);
     setVista('crear');
@@ -391,9 +398,46 @@ export default function Lobby() {
               <p style={{ color: '#c2c8ce', fontSize: '1rem', lineHeight: 1.6, margin: '18px 0 8px' }}>
                 {mensajeEspera || 'Esperando jugadores...'}
               </p>
-              <p style={{ color: '#FF4655', fontFamily: "'Bebas Neue', cursive", fontSize: '1.3rem', letterSpacing: '0.08em', margin: '0 0 26px' }}>
+              <p style={{ color: '#FF4655', fontFamily: "'Bebas Neue', cursive", fontSize: '1.3rem', letterSpacing: '0.08em', margin: '0 0 18px' }}>
                 {jugadoresEnSala}/4 CONECTADOS
               </p>
+
+              {jugadoresSala.length > 0 && (
+                <div style={{
+                  background: 'rgba(10, 16, 22, 0.85)',
+                  border: '1px solid rgba(255, 70, 85, 0.35)',
+                  marginBottom: '26px'
+                }}>
+                  {jugadoresSala.map((j, i) => (
+                    <div key={j.id} style={{
+                      display: 'flex', alignItems: 'center', gap: '14px',
+                      padding: '10px 16px',
+                      borderTop: i > 0 ? '1px solid #FF4655' : 'none'
+                    }}>
+                      <img
+                        src={`/sprites/jugador-${j.color}.png`}
+                        alt={j.color}
+                        style={{ width: '40px', height: '40px', imageRendering: 'pixelated', flexShrink: 0 }}
+                      />
+                      <span style={{
+                        color: 'white', fontFamily: "'Bebas Neue', cursive",
+                        fontSize: '1.15rem', letterSpacing: '0.06em', flex: 1
+                      }}>
+                        {j.nombre}
+                      </span>
+                      {i === 0 && (
+                        <span style={{
+                          color: '#FF4655', fontSize: '0.65rem', letterSpacing: '0.13em',
+                          border: '1px solid #FF4655', padding: '3px 9px',
+                          textTransform: 'uppercase', fontFamily: "'Rajdhani', sans-serif"
+                        }}>
+                          Anfitrión
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: '8px', marginBottom: '30px' }}>
                 {[0,1,2,3].map(i => (
@@ -423,7 +467,7 @@ export default function Lobby() {
                 </div>
               )}
 
-              <button onClick={() => { setNombreSala(''); setEsDueno(false); setVista('menu'); }}
+              <button onClick={() => { setNombreSala(''); setEsDueno(false); setJugadoresSala([]); setVista('menu'); }}
                 className="btn-val-outline" style={{ fontSize: '0.76rem' }}>
                 CANCELAR
               </button>

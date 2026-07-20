@@ -174,12 +174,13 @@ io.on('connection', (socket) => {
       metrics.salaCreada.inc();
       metrics.salasActivas.set(rooms.size);
 
-      await lobby.unirseASala(salaId, { id: socket.id, nombre, color });
+      const resultadoUnion = await lobby.unirseASala(salaId, { id: socket.id, nombre, color });
       await room.agregarJugador(socket.id, nombre, color);
       socket.join(salaId);
       socket.salaId = salaId;
       socket.nombre = nombre;
       socket.emit('sala_creada', { salaId });
+      io.to(salaId).emit('jugadores_sala', resultadoUnion.sala.jugadores);
       await difundirListaSalas();
       logger.info({ event: 'sala_creada', salaId, creador: nombre, socketId: socket.id });
     } catch (err) {
@@ -230,6 +231,7 @@ io.on('connection', (socket) => {
       socket.join(salaId);
       socket.salaId = salaId;
       socket.nombre = nombre;
+      io.to(salaId).emit('jugadores_sala', resultado.sala.jugadores);
       await difundirListaSalas();
       logger.info({ event: 'jugador_unido_sala', salaId, nombre, socketId: socket.id });
     } catch (err) {
@@ -314,6 +316,8 @@ io.on('connection', (socket) => {
         await GameRoom.eliminarEstado(salaId);
         rooms.delete(salaId);
         logger.info({ event: 'sala_vacia_eliminada', salaId });
+      } else {
+        io.to(salaId).emit('jugadores_sala', salaRestante.jugadores);
       }
 
       metrics.salasActivas.set(rooms.size);
