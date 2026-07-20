@@ -53,6 +53,11 @@ const listo = client.connect()
 
 const SALA_PREFIX = 'sala:';
 
+// Canal pub/sub para avisar a todas las instancias que releean y difundan
+// 'lista_salas'. Se expone aquí (en vez de definirlo también en index.js y
+// GameRoom.js) para que ambos publiquen al mismo canal sin duplicar el string.
+const CANAL_SALAS = 'salas:actualizar';
+
 // `listo` (client.connect()) no se rechaza sola si Redis nunca responde: el
 // reconnectStrategy por defecto reintenta indefinidamente incluso en el
 // primer intento. Sin este límite, cualquier método de abajo se quedaría
@@ -95,7 +100,7 @@ class LobbyManager {
     try {
       const existe = await client.exists(key);
       if (existe) return { error: 'Ya existe una sala con ese nombre.' };
-      const sala = { id: nombreLimpio, jugadores: [] };
+      const sala = { id: nombreLimpio, jugadores: [], enPartida: false };
       await client.set(key, JSON.stringify(sala), { EX: 3600 });
       logger.info({ event: 'redis_sala_creada', salaId: nombreLimpio });
       return { ok: true, salaId: nombreLimpio };
@@ -201,6 +206,7 @@ class LobbyManager {
         const data = await client.get(key);
         if (!data) continue;
         const sala = JSON.parse(data);
+        if (sala.enPartida) continue;
         salas.push({
           id: sala.id,
           jugadores: sala.jugadores.length,
@@ -213,6 +219,38 @@ class LobbyManager {
       return [];
     }
   }
+
+  async marcarEnPartida(salaId) {
+    await esperarListo();
+    const key = `${SALA_PREFIX}${salaId}`;
+    try {
+      const sala = await this.getSala(salaId);
+      if (!sala) return { error: 'Sala no encontrada.' };
+      sala.enPartida = true;
+      await client.set(key, JSON.stringify(sala), { EX: 3600 });
+      logger.info({ event: 'redis_sala_en_partida', salaId });
+      return { ok: true };
+    } catch (err) {
+      logger.error({ event: 'redis_marcar_en_partida_error', salaId, error: err.message });
+      return { error: 'No se pudo marcar la sala en partida (fallo de conexión con Redis).' };
+    }
+  }
+
+  async desmarcarEnPartida(salaId) {
+    await esperarListo();
+    const key = `${SALA_PREFIX}${salaId}`;
+    try {
+      const sala = await this.getSala(salaId);
+      if (!sala) return { error: 'Sala no encontrada.' };
+      sala.enPartida = false;
+      await client.set(key, JSON.stringify(sala), { EX: 3600 });
+      logger.info({ event: 'redis_sala_partida_finalizada', salaId });
+      return { ok: true };
+    } catch (err) {
+      logger.error({ event: 'redis_desmarcar_en_partida_error', salaId, error: err.message });
+      return { error: 'No se pudo desmarcar la sala en partida (fallo de conexión con Redis).' };
+    }
+  }
 }
 
 // Se expone el mismo cliente/promesa de conexión para que GameRoom (estado
@@ -221,4 +259,5 @@ class LobbyManager {
 LobbyManager.MAX_JUGADORES = MAX_JUGADORES;
 LobbyManager.redisClient = client;
 LobbyManager.esperarListo = esperarListo;
+LobbyManager.CANAL_SALAS = CANAL_SALAS;
 module.exports = LobbyManager;

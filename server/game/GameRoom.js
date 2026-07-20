@@ -8,6 +8,7 @@ const { WatchError } = require('redis');
 // puede leerlo/escribirlo, en vez de quedar atrapado en memoria local.
 const redisClient = LobbyManager.redisClient;
 const esperarListo = LobbyManager.esperarListo;
+const lobby = new LobbyManager();
 
 const GAMEROOM_PREFIX = 'gameroom:';
 const GAMEROOM_TTL_SEGUNDOS = 3600;
@@ -181,6 +182,11 @@ class GameRoom {
             metrics.partidasCompletadas.inc();
             this.logger.info({ event: 'partida_terminada', salaId: this.salaId, ganador: nombre });
             this.io.to(this.salaId).emit('fin_partida', { ganador: nombre });
+
+            // Libera la sala para que vuelva a listarse en el lobby (si
+            // quedan jugadores) sin esperar a que alguien pida 'pedir_salas'.
+            await lobby.desmarcarEnPartida(this.salaId);
+            await redisClient.publish(LobbyManager.CANAL_SALAS, '1');
           }
         }
       } catch (err) {

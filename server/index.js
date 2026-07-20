@@ -62,7 +62,7 @@ const adapterListo = Promise.all([pubClient.connect(), subClient.connect()]).the
 // o elimina jugadores de una sala, publica en este canal; cada instancia
 // (incluida la que publicó) recibe el aviso, relee Redis y emite
 // 'lista_salas' a SUS propios clientes conectados.
-const CANAL_SALAS = 'salas:actualizar';
+const CANAL_SALAS = LobbyManager.CANAL_SALAS;
 const salasSubClient = pubClient.duplicate();
 
 salasSubClient.on('error', err => logger.error({ event: 'redis_salas_sub_error', error: err.message }));
@@ -200,6 +200,10 @@ io.on('connection', (socket) => {
     try {
       const sala = await lobby.getSala(salaId);
       if (!sala) { socket.emit('error_sala', 'Sala no encontrada'); return; }
+      if (sala.enPartida) {
+        socket.emit('error_sala', 'La partida ya comenzó, espera la siguiente ronda');
+        return;
+      }
       if (sala.jugadores.length >= LobbyManager.MAX_JUGADORES) {
         socket.emit('error_sala', 'Sala llena'); return;
       }
@@ -256,6 +260,8 @@ io.on('connection', (socket) => {
       metrics.partidasIniciadas.inc();
       logger.info({ event: 'partida_iniciada', salaId, jugadores: sala.jugadores.length });
       io.to(salaId).emit('iniciar_partida', estado);
+      await lobby.marcarEnPartida(salaId);
+      await difundirListaSalas();
     } catch (err) {
       logger.error({ event: 'iniciar_partida_error', salaId, socketId: socket.id, error: err.message, stack: err.stack });
       socket.emit('error_sala', 'Error interno al iniciar la partida. Intenta de nuevo.');
