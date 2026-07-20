@@ -162,6 +162,36 @@ class LobbyManager {
     }
   }
 
+  // Salvavidas para sockets que nunca disparan 'disconnect' en ninguna
+  // instancia (crash del proceso, kill -9 de PM2, caída de red que el
+  // heartbeat de Socket.io tarda en detectar): sin esto esas salas
+  // quedarían fantasma en Redis para siempre (hasta el TTL de 1h).
+  // `socketsActivos` debe ser el set de IDs conectados en TODO el clúster
+  // (vía io.fetchSockets(), que sí cruza instancias gracias al adapter de
+  // Redis) y no solo los locales de este proceso, o se borrarían salas con
+  // jugadores conectados a la otra instancia EC2.
+  async limpiarSalasInactivas(socketsActivos) {
+    await esperarListo();
+    const salasEliminadas = [];
+    try {
+      const keys = await client.keys(`${SALA_PREFIX}*`);
+      for (const key of keys) {
+        const data = await client.get(key);
+        if (!data) continue;
+        const sala = JSON.parse(data);
+        const tieneSocketActivo = sala.jugadores.some(j => socketsActivos.has(j.id));
+        if (!tieneSocketActivo) {
+          await client.del(key);
+          salasEliminadas.push(sala.id);
+          logger.info({ event: 'redis_sala_huerfana_eliminada', salaId: sala.id });
+        }
+      }
+    } catch (err) {
+      logger.error({ event: 'redis_limpiar_salas_error', error: err.message });
+    }
+    return salasEliminadas;
+  }
+
   async getSalasDisponibles() {
     await esperarListo();
     try {

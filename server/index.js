@@ -318,6 +318,40 @@ io.on('connection', (socket) => {
   });
 });
 
+// ── LIMPIEZA PERIÓDICA DE SALAS HUÉRFANAS ────────────
+// Salvavidas del disconnect handler de arriba: si un proceso muere sin
+// disparar 'disconnect' (kill -9, crash), la sala queda en Redis con
+// jugadores que ya no existen en ningún lado. io.fetchSockets() consulta
+// TODAS las instancias del clúster vía el adapter de Redis (a diferencia
+// de io.sockets.sockets, que solo ve los sockets locales de este proceso),
+// así que un jugador conectado a la otra instancia EC2 no se marca como
+// inactivo por error.
+const LIMPIEZA_SALAS_INTERVALO_MS = 60000;
+
+async function limpiarSalasHuérfanas() {
+  try {
+    const socketsActivos = new Set((await io.fetchSockets()).map(s => s.id));
+    const salasEliminadas = await lobby.limpiarSalasInactivas(socketsActivos);
+
+    for (const salaId of salasEliminadas) {
+      const room = rooms.get(salaId);
+      if (room) room.destruirLocal();
+      await GameRoom.eliminarEstado(salaId);
+      rooms.delete(salaId);
+    }
+
+    if (salasEliminadas.length > 0) {
+      metrics.salasActivas.set(rooms.size);
+      await difundirListaSalas();
+      logger.info({ event: 'limpieza_salas_huerfanas', salas: salasEliminadas });
+    }
+  } catch (err) {
+    logger.error({ event: 'limpieza_salas_error', error: err.message, stack: err.stack });
+  }
+}
+
+setInterval(limpiarSalasHuérfanas, LIMPIEZA_SALAS_INTERVALO_MS);
+
 const PORT = process.env.PORT || 4517;
 const REDIS_STARTUP_TIMEOUT_MS = 5000;
 
