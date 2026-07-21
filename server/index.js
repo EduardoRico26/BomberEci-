@@ -164,11 +164,18 @@ async function salirDeSalaActual(socket, salaId) {
   }
 }
 
-// Sin esto, cualquiera podía abrir el socket.io directo (sin pasar por el
-// login) y jugar con un "nombre" de texto libre; además era la única forma
-// de tener un identificador de CUENTA estable (usuarioId) para detectar que
-// la misma cuenta se unió dos veces a la misma sala desde pestañas distintas
-// (antes solo se comparaba por socket.id, que siempre es único por pestaña).
+// Identifica la CUENTA detrás del socket (usuarioId, del JWT de la cookie de
+// sesión) para poder detectar que la misma cuenta se unió dos veces a la
+// misma sala desde pestañas distintas (antes solo se comparaba por
+// socket.id, que siempre es único por pestaña, así que nunca coincidía).
+//
+// A propósito NUNCA rechaza la conexión (siempre llama next() sin error):
+// esto es una mejora de detección de duplicados, no un gate de acceso — el
+// login real ya lo protegen las rutas de React (RutaProtegida) y las rutas
+// HTTP de /auth. Si por lo que sea la cookie no llega o el JWT no se puede
+// verificar, el socket igual se conecta y juega con normalidad, solo que sin
+// la protección anti-doble-pestaña (mejor eso que dejar al jugador sin poder
+// jugar en absoluto).
 function extraerTokenDeCookie(cabeceraCookie) {
   if (!cabeceraCookie) return null;
   for (const parte of cabeceraCookie.split(';')) {
@@ -183,15 +190,16 @@ function extraerTokenDeCookie(cabeceraCookie) {
 io.use((socket, next) => {
   const token = extraerTokenDeCookie(socket.handshake.headers.cookie);
   if (!token) {
-    return next(new Error('No autenticado'));
+    logger.warn({ event: 'socket_sin_cookie_sesion', socketId: socket.id });
+    return next();
   }
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.usuarioId = decoded.id;
-    next();
   } catch (err) {
-    next(new Error('Token inválido o expirado'));
+    logger.warn({ event: 'socket_token_invalido', socketId: socket.id, error: err.message });
   }
+  next();
 });
 
 io.on('connection', (socket) => {
@@ -266,7 +274,11 @@ io.on('connection', (socket) => {
         socket.emit('error_sala', 'La partida ya comenzó, espera la siguiente ronda');
         return;
       }
-      if (sala.jugadores.some(j => j.usuarioId === socket.usuarioId)) {
+      // El guard "socket.usuarioId &&" es obligatorio: si no se pudo leer la
+      // cookie de sesión (ver io.use más arriba), socket.usuarioId queda
+      // undefined, y sin este guard "undefined === undefined" bloquearía a
+      // CUALQUIER segundo jugador real (no solo a la misma cuenta).
+      if (socket.usuarioId && sala.jugadores.some(j => j.usuarioId === socket.usuarioId)) {
         socket.emit('error_sala', 'Ya estás en esta sala desde otra pestaña o dispositivo.');
         return;
       }

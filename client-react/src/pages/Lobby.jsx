@@ -56,13 +56,6 @@ export default function Lobby() {
       setErrorNombre(msg);
       setMensajeEspera(msg);
     });
-    // El servidor ahora valida la cookie de sesión al conectar el socket
-    // (para poder identificar la cuenta detrás de cada pestaña); si el
-    // token no está o venció, antes esto dejaba al usuario colgado sin
-    // explicación — acá se lo manda de vuelta al login.
-    socket.on('connect_error', () => {
-      navigate('/login');
-    });
     const intervalo = setInterval(() => socket.emit('pedir_salas'), 2000);
     return () => {
       clearInterval(intervalo);
@@ -72,10 +65,9 @@ export default function Lobby() {
       socket.off('jugadores_sala');
       socket.off('iniciar_partida');
       socket.off('error_sala');
-      socket.off('connect_error');
       socket.disconnect();
     };
-  }, [navigate]);
+  }, []);
 
   // Filtrar salas disponibles (no llenas) en tiempo real para la lista pública de "unirse"
   useEffect(() => {
