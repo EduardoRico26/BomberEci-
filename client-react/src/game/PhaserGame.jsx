@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Phaser from 'phaser';
 import { colorPorId, COLORES_JUGADOR } from './coloresJugador';
 
@@ -9,17 +9,52 @@ const TILE = 56;
 // 4 = izquierda; paso 1/2 son los dos frames del ciclo de caminar.
 const FILA_DIRECCION = { abajo: 1, arriba: 2, derecha: 3, izquierda: 4 };
 
+// Espacio reservado alrededor del tablero (header, footer, panel lateral y
+// márgenes de respiro) para calcular cuánto se puede escalar el tablero sin
+// que se salga de la pantalla. Son estimaciones deliberadamente generosas:
+// mejor un tablero un poco más chico que uno recortado.
+const RESERVA_HEADER = 96;
+const RESERVA_FOOTER = 90;
+const RESERVA_PANEL  = 220;
+const MARGEN         = 32;
+const ESCALA_MINIMA  = 0.32;
+
+// El tablero de Phaser se renderiza siempre a su resolución nativa (ANCHO x
+// ALTO en píxeles reales); esta función solo calcula cuánto hay que
+// encogerlo visualmente (vía CSS transform) para que quepa completo en la
+// pantalla actual, sin importar el tamaño de monitor o ventana.
+function calcularEscala(ancho, alto) {
+  if (typeof window === 'undefined') return 1;
+  const anchoDisponible = window.innerWidth  - RESERVA_PANEL - MARGEN * 2;
+  const altoDisponible  = window.innerHeight - RESERVA_HEADER - RESERVA_FOOTER - MARGEN;
+  const factor = Math.min(anchoDisponible / ancho, altoDisponible / alto, 1);
+  return Math.max(factor, ESCALA_MINIMA);
+}
+
 export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, onVolverSala, onSalirSala }) {
   const contenedor  = useRef(null);
   const juegoRef    = useRef(null);
   const escenaRef   = useRef(null);
   const estadoRef   = useRef(JSON.parse(JSON.stringify(estadoInicial)));
 
+  const ANCHO = estadoInicial.mapa[0].length * TILE;
+  const ALTO  = estadoInicial.mapa.length    * TILE;
+
+  const [escala, setEscala] = useState(() => calcularEscala(ANCHO, ALTO));
+
+  // Recalcula el factor de escala cada vez que cambia el tamaño de la
+  // ventana (maximizar/restaurar, mover a otro monitor, rotar, etc.), sin
+  // tocar la instancia de Phaser: solo cambia el CSS transform de afuera.
+  useEffect(() => {
+    function alRedimensionar() {
+      setEscala(calcularEscala(ANCHO, ALTO));
+    }
+    window.addEventListener('resize', alRedimensionar);
+    return () => window.removeEventListener('resize', alRedimensionar);
+  }, [ANCHO, ALTO]);
+
   useEffect(() => {
     if (!estadoInicial || juegoRef.current) return;
-
-    const ANCHO = estadoInicial.mapa[0].length * TILE;
-    const ALTO  = estadoInicial.mapa.length    * TILE;
 
     // Bandera propia de esta ejecución del efecto (no un ref compartido).
     // Phaser.Game arranca de forma asíncrona: si React StrictMode
@@ -421,8 +456,8 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
 
   return (
     <div style={{
-      width: '100vw', height: '100vh',
-      position: 'relative', overflow: 'hidden',
+      width: '100vw', minHeight: '100vh',
+      position: 'relative', overflow: 'auto',
       background: '#05080b',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center'
@@ -445,7 +480,8 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 36px',
+        flexWrap: 'wrap', rowGap: '8px',
+        padding: '12px clamp(16px, 3vw, 36px)',
         background: 'linear-gradient(to bottom, rgba(8,12,17,0.94), rgba(8,12,17,0.55) 75%, transparent)',
         borderBottom: '1px solid rgba(255,70,85,0.25)'
       }}>
@@ -462,7 +498,7 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {estadoInicial.jugadores.map(j => {
             const c     = colorPorId(j.color);
             const esMio = j.id === socket.id;
@@ -491,17 +527,27 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
 
       {/* Tablero + panel lateral */}
       <div style={{ position: 'relative', zIndex: 5, display: 'flex', alignItems: 'center', gap: '28px' }}>
-        <div style={{ position: 'relative' }}>
+        {/* Caja al tamaño visual final (ANCHO/ALTO ya escalados): define el
+            espacio real que ocupa en la página y recorta el sobrante del
+            hijo sin escalar de abajo. */}
+        <div style={{
+          position: 'relative',
+          width: ANCHO * escala,
+          height: ALTO * escala,
+          overflow: 'hidden',
+          border: '1px solid rgba(255,70,85,0.5)',
+          boxShadow: '0 0 70px rgba(255,70,85,0.25), inset 0 0 50px rgba(0,0,0,0.55)'
+        }}>
           <div style={esquina('top', 'left')}/>
           <div style={esquina('top', 'right')}/>
           <div style={esquina('bottom', 'left')}/>
           <div style={esquina('bottom', 'right')}/>
-          <div ref={contenedor}
-            style={{
-              border: '1px solid rgba(255,70,85,0.5)',
-              boxShadow: '0 0 70px rgba(255,70,85,0.25), inset 0 0 50px rgba(0,0,0,0.55)'
-            }}
-          />
+          {/* Phaser siempre renderiza a su resolución nativa (ANCHO x ALTO);
+              este wrapper solo lo encoge visualmente vía transform para que
+              quepa en pantallas más pequeñas, sin tocar la lógica del juego. */}
+          <div style={{ width: ANCHO, height: ALTO, transform: `scale(${escala})`, transformOrigin: 'top left' }}>
+            <div ref={contenedor} style={{ width: ANCHO, height: ALTO }} />
+          </div>
         </div>
 
         {/* Salir de la sala */}
