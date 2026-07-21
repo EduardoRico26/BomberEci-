@@ -1,40 +1,40 @@
 name: CI BomberEci Arena
+
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    types: [opened, synchronize, reopened]
 
 jobs:
   test:
+    name: Test and SonarCloud
     runs-on: ubuntu-latest
-    env:
-      # Variables mockeadas para que las pruebas nunca intenten hablar con
-      # PostgreSQL/Redis reales: Redis y la capa de acceso a datos ya están
-      # mockeados a nivel de módulo en server/tests/api/routes.test.js, pero
-      # se dejan estos valores igual por si algún código lee process.env al
-      # importarse (ninguno hoy, pero es la red de seguridad barata).
-      NODE_ENV: test
-      JWT_SECRET: mock-jwt-secret-para-ci
-      JWT_EXPIRES_IN: 1h
-      DB_HOST: localhost
-      DB_PORT: '5432'
-      DB_NAME: mock
-      DB_USER: mock
-      DB_PASSWORD: mock
-      REDIS_HOST: localhost
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm install
-      - run: npm test -- --coverage
-      - name: Upload test results
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests with coverage
+        run: npm test -- --coverage
+        env:
+          NODE_ENV: test
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: coverage
           path: coverage/
-          if-no-files-found: ignore

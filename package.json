@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "jest --testPathPatterns=server/tests --forceExit"
+    "test": "jest --testPathPatterns=server/tests"
   },
   "repository": {
     "type": "git",
