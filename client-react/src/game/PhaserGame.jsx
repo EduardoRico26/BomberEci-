@@ -16,7 +16,7 @@ const FILA_DIRECCION = { abajo: 1, arriba: 2, derecha: 3, izquierda: 4 };
 const RESERVA_HEADER          = 64;
 const RESERVA_FOOTER          = 56;
 const RESERVA_PANEL_IZQUIERDO = 190; // tarjetas de jugadores
-const RESERVA_PANEL_DERECHO   = 170; // botón "abandonar"
+const RESERVA_PANEL_DERECHO   = 190; // tarjetas de jugadores + botón "abandonar" debajo
 const MARGEN                  = 18;
 const ESCALA_MINIMA           = 0.4;
 
@@ -55,8 +55,11 @@ function TarjetaJugador({ jugador, esMio, ahora }) {
       border: `1px solid ${esMio ? '#FF4655' : 'rgba(255,70,85,0.3)'}`,
       clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
       padding: '10px 12px',
+      boxSizing: 'border-box',
       display: 'flex', flexDirection: 'column', gap: '7px',
       width: '156px',
+      height: '190px',
+      flexShrink: 0,
       opacity: jugador.vivo ? 1 : 0.4,
       transition: 'opacity 0.3s'
     }}>
@@ -193,7 +196,7 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
         this.ultimoMov  = 0;
         this.bombaSprites = {};
         this.powerupSprites  = {};
-        this.powerupsReportados = new Set();
+        this.powerupsReportados = new Map();
         this.jugadorSprites   = {};
         this.direccionJugador = {};
         this.ultimaPosJugador = {};
@@ -217,7 +220,7 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
 
         this.animarBombas(time);
         this.dibujarJugadores(estadoRef.current);
-        this.revisarRecogerPowerup();
+        this.revisarRecogerPowerup(time);
 
         // El cooldown lo decide el servidor (fuente de verdad); acá solo se
         // evita spamear 'mover' más rápido de lo que el propio jugador puede
@@ -262,24 +265,32 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
           if (!vistos.has(id)) {
             this.powerupSprites[id].destroy();
             delete this.powerupSprites[id];
+            this.powerupsReportados?.delete(id);
           }
         });
       }
 
       // Detección de colisión jugador-powerup del lado del cliente: si mi
       // jugador está parado sobre la celda de un power-up, se le avisa al
-      // servidor (que valida y aplica de verdad). El Set evita reportar el
-      // mismo power-up en cada frame mientras se espera la respuesta.
-      revisarRecogerPowerup() {
+      // servidor (que valida y aplica de verdad). El servidor ignora la
+      // recogida si ese poder ya está activo (el power-up se queda ahí para
+      // recogerlo después), así que acá NO se puede marcar como "reportado
+      // para siempre" — si no, en cuanto el poder expire mientras el jugador
+      // sigue parado en esa celda, nunca se reintentaría. Por eso se
+      // reintenta cada REINTENTO_MS mientras siga sobre la misma celda.
+      revisarRecogerPowerup(time) {
         const miJugador = estadoRef.current.jugadores.find(j => j.id === this.miId && j.vivo);
         if (!miJugador) return;
 
         const powerups = estadoRef.current.powerups || [];
         const powerup = powerups.find(p => p.x === miJugador.x && p.y === miJugador.y);
         if (!powerup) return;
-        if (this.powerupsReportados.has(powerup.id)) return;
 
-        this.powerupsReportados.add(powerup.id);
+        const REINTENTO_MS = 1000;
+        const ultimoIntento = this.powerupsReportados.get(powerup.id) || 0;
+        if (time - ultimoIntento < REINTENTO_MS) return;
+
+        this.powerupsReportados.set(powerup.id, time);
         socket.emit('recoger_powerup', { salaId, socketId: this.miId, powerupId: powerup.id });
       }
 
@@ -615,6 +626,12 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
     };
   }, [estadoInicial]);
 
+  // Repartidas parejo entre ambos lados del tablero: 2 jugadores -> 1 y 1,
+  // 3 jugadores -> 2 a la izquierda y 1 a la derecha, 4 -> 2 y 2.
+  const mitad = Math.ceil(jugadoresEstado.length / 2);
+  const jugadoresIzquierda = jugadoresEstado.slice(0, mitad);
+  const jugadoresDerecha   = jugadoresEstado.slice(mitad);
+
   const esquina = (vertical, horizontal) => ({
     position: 'absolute', width: '26px', height: '26px',
     [vertical]: '-10px', [horizontal]: '-10px',
@@ -696,12 +713,14 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
         </div>
       </div>
 
-      {/* Tablero + paneles laterales */}
-      <div style={{ position: 'relative', zIndex: 5, display: 'flex', alignItems: 'center', gap: '18px' }}>
+      {/* Tablero + paneles laterales. alignItems:'flex-start' para que la
+          primera tarjeta de cada lado quede a ras del borde superior del
+          tablero (nada de centrado vertical acá). */}
+      <div style={{ position: 'relative', zIndex: 5, display: 'flex', alignItems: 'flex-start', gap: '18px' }}>
 
-        {/* Jugadores (izquierda) */}
+        {/* Jugadores (izquierda): top de la primera tarjeta a ras del tablero */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {jugadoresEstado.map(j => (
+          {jugadoresIzquierda.map(j => (
             <TarjetaJugador key={j.id} jugador={j} esMio={j.id === socket.id} ahora={ahora} />
           ))}
         </div>
@@ -729,34 +748,43 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
           </div>
         </div>
 
-        {/* Salir de la sala */}
-        <div style={{
-          display: 'flex', flexDirection: 'column', gap: '7px',
-          padding: '14px 13px',
-          background: 'rgba(8,12,17,0.75)',
-          border: '1px solid rgba(255,70,85,0.25)',
-          minWidth: '120px'
-        }}>
-          <p style={{
-            fontFamily: "'Bebas Neue', cursive", fontSize: '0.8rem',
-            color: 'white', letterSpacing: '0.07em', margin: 0
+        {/* Jugadores (derecha) arriba + botón abandonar empujado al fondo con
+            marginTop:'auto', en una columna con la MISMA altura que el
+            tablero para que quede a ras del borde inferior. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', height: ALTO * escala }}>
+          {jugadoresDerecha.map(j => (
+            <TarjetaJugador key={j.id} jugador={j} esMio={j.id === socket.id} ahora={ahora} />
+          ))}
+
+          <div style={{
+            marginTop: 'auto',
+            display: 'flex', flexDirection: 'column', gap: '7px',
+            padding: '14px 13px',
+            background: 'rgba(8,12,17,0.75)',
+            border: '1px solid rgba(255,70,85,0.25)',
+            width: '156px'
           }}>
-            ABANDONAR
-          </p>
-          <p style={{ fontSize: '0.6rem', color: '#c2c8ce', lineHeight: 1.4, margin: '0 0 2px' }}>
-            Perderás tu progreso en esta partida.
-          </p>
-          <button
-            onClick={() => {
-              if (window.confirm('¿Seguro que quieres salir de la sala?')) {
-                onSalirSala?.();
-              }
-            }}
-            className="btn-val-outline"
-            style={{ fontSize: '0.62rem', padding: '8px 10px', width: '100%' }}
-          >
-            SALIR DE LA SALA
-          </button>
+            <p style={{
+              fontFamily: "'Bebas Neue', cursive", fontSize: '0.8rem',
+              color: 'white', letterSpacing: '0.07em', margin: 0
+            }}>
+              ABANDONAR
+            </p>
+            <p style={{ fontSize: '0.6rem', color: '#c2c8ce', lineHeight: 1.4, margin: '0 0 2px' }}>
+              Perderás tu progreso en esta partida.
+            </p>
+            <button
+              onClick={() => {
+                if (window.confirm('¿Seguro que quieres salir de la sala?')) {
+                  onSalirSala?.();
+                }
+              }}
+              className="btn-val-outline"
+              style={{ fontSize: '0.62rem', padding: '8px 10px', width: '100%' }}
+            >
+              SALIR DE LA SALA
+            </button>
+          </div>
         </div>
       </div>
 
