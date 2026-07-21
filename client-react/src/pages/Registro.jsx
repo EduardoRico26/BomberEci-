@@ -81,38 +81,52 @@ export default function Registro() {
   }
 
   return (
-    <div
-      className="flex flex-col items-center justify-center px-4 py-10 md:block md:px-0 md:py-0"
-      style={{
-        width: '100%',
-        minHeight: '100vh',
-        position: 'relative',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        background: '#0a1016'
-      }}
-    >
-      {/* Imagen completa de fondo, sin división ni degradado; oculta en móvil (<768px) */}
-      <img
-        src="/bg-login.png"
-        alt="BomberEci Arena"
-        className="hidden md:block"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          objectPosition: 'center center'
-        }}
-      />
+    <div style={{ width: '100%', minHeight: '100vh', display: 'flex' }}>
 
-      {/* Formulario en la misma ubicación del Login */}
+      {/* Columna izquierda (60%): imagen decorativa, oculta en móvil (<768px) */}
+      <div
+        className="hidden md:block md:w-[60%] md:flex-shrink-0"
+        style={{ position: 'relative', overflow: 'hidden' }}
+      >
+        <img
+          src="/bg-login.png"
+          alt="BomberEci Arena"
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'block',
+            objectFit: 'cover',
+            objectPosition: 'center center'
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'linear-gradient(to right, transparent 70%, #0a1016 100%)'
+          }}
+        />
+      </div>
+
+      {/* Columna derecha (40% desktop / 100% móvil): formulario centrado horizontal y verticalmente */}
+      <div
+        className="w-full md:w-[40%] md:flex-shrink-0"
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflowY: 'auto',
+          padding: '40px 24px',
+          background: '#0a1016'
+        }}
+      >
       <motion.div
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        className="relative z-10 w-full max-w-[440px] mx-auto max-h-[90vh] overflow-y-auto p-2 md:absolute md:right-[6%] md:top-1/4 md:-translate-y-1/2 md:w-[min(440px,36vw)] md:mx-0"
+        className="w-full max-w-[440px]"
       >
         {/* Título */}
         <div style={{ marginBottom: '28px' }}>
@@ -365,6 +379,7 @@ export default function Registro() {
           }}
         />
       </motion.div>
+      </div>
     </div>
   );
 }

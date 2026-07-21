@@ -63,7 +63,7 @@ export default function Inicio() {
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        className="relative z-10 w-full max-w-[440px] mx-auto mt-16 md:mt-0 md:absolute md:right-[6%] md:top-1/4 md:-translate-y-1/2 md:w-[min(440px,36vw)] md:min-w-[320px] md:mx-0"
+        className="relative z-10 w-full max-w-[440px] mx-auto mt-16 md:mt-0 md:absolute md:right-[8%] md:top-[25%] md:w-[min(440px,36vw)] md:min-w-[320px] md:mx-0"
       >
         <div style={{ marginBottom: '36px' }}>
           <div
