@@ -188,14 +188,23 @@ function extraerTokenDeCookie(cabeceraCookie) {
 }
 
 io.use((socket, next) => {
-  const token = extraerTokenDeCookie(socket.handshake.headers.cookie);
+  const cabeceraCookie = socket.handshake.headers.cookie;
+  const token = extraerTokenDeCookie(cabeceraCookie);
   if (!token) {
-    logger.warn({ event: 'socket_sin_cookie_sesion', socketId: socket.id });
+    // Loguea qué cookies SÍ llegaron (solo nombres, nunca valores) para
+    // distinguir "no llegó ninguna cookie" (problema de origen/proxy) de
+    // "llegaron cookies pero no había 'token'" (sesión no iniciada / cookie
+    // con otro nombre).
+    const nombresCookies = cabeceraCookie
+      ? cabeceraCookie.split(';').map(c => c.split('=')[0].trim())
+      : [];
+    logger.warn({ event: 'socket_sin_cookie_sesion', socketId: socket.id, cookiesRecibidas: nombresCookies });
     return next();
   }
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.usuarioId = decoded.id;
+    logger.info({ event: 'socket_usuario_identificado', socketId: socket.id, usuarioId: socket.usuarioId });
   } catch (err) {
     logger.warn({ event: 'socket_token_invalido', socketId: socket.id, error: err.message });
   }
