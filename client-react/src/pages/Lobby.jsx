@@ -169,7 +169,7 @@ export default function Lobby() {
   return (
     <div style={{
       width: '100%', minHeight: '100vh',
-      position: 'relative', overflow: 'hidden',
+      position: 'relative', overflowY: 'auto', overflowX: 'hidden',
       background: '#0a1016'
     }}>
 
@@ -190,41 +190,44 @@ export default function Lobby() {
 
       {/* Header */}
       <header style={{
-        position: 'absolute', top: '28px',
-        left: 'clamp(24px, 4vw, 72px)',
-        right: 'clamp(24px, 4vw, 72px)',
+        position: 'absolute', top: '20px',
+        left: 'clamp(16px, 4vw, 72px)',
+        right: 'clamp(16px, 4vw, 72px)',
         zIndex: 10,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexWrap: 'wrap', rowGap: '10px'
       }}>
         <div>
-          <p style={{ color: '#FF4655', fontSize: '0.72rem', letterSpacing: '0.18em', margin: 0, textTransform: 'uppercase' }}>
+          <p style={{ color: '#FF4655', fontSize: '0.68rem', letterSpacing: '0.18em', margin: 0, textTransform: 'uppercase' }}>
             BomberEci Arena
           </p>
-          <p style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '1.65rem', letterSpacing: '0.09em', margin: '3px 0 0' }}>
+          <p style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: 'clamp(1.1rem, 4.5vw, 1.65rem)', letterSpacing: '0.09em', margin: '3px 0 0' }}>
             SELECCIÓN DE PARTIDA
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{ textAlign: 'right' }}>
-            <p style={{ color: '#c2c8ce', fontSize: '0.68rem', letterSpacing: '0.13em', margin: 0, textTransform: 'uppercase' }}>
+            <p style={{ color: '#c2c8ce', fontSize: '0.64rem', letterSpacing: '0.13em', margin: 0, textTransform: 'uppercase' }}>
               Jugador
             </p>
-            <p style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '1.25rem', letterSpacing: '0.08em', margin: '4px 0 0' }}>
+            <p style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '1.05rem', letterSpacing: '0.08em', margin: '4px 0 0' }}>
               {usuario?.nombre?.toUpperCase() || 'JUGADOR'}
             </p>
           </div>
-          <button onClick={cerrarSesion} className="btn-val-outline" style={{ fontSize: '0.72rem' }}>
+          <button onClick={cerrarSesion} className="btn-val-outline" style={{ fontSize: '0.7rem' }}>
             SALIR
           </button>
         </div>
       </header>
 
       {/* Contenido */}
-      <main style={{
+      <main className="pt-[150px] md:pt-[60px]" style={{
         position: 'relative', zIndex: 5,
         minHeight: '100vh',
         display: 'flex', justifyContent: 'center', alignItems: 'center',
-        padding: '60px clamp(24px, 6vw, 80px) 48px'
+        paddingLeft: 'clamp(20px, 6vw, 80px)',
+        paddingRight: 'clamp(20px, 6vw, 80px)',
+        paddingBottom: '48px'
       }}>
         <AnimatePresence mode="wait">
 
@@ -250,7 +253,7 @@ export default function Lobby() {
                 </p>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '18px' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '18px' }}>
 
                 {/* Card Crear */}
                 <motion.div whileHover={{ y: -6 }} whileTap={{ scale: 0.98 }}
@@ -312,7 +315,7 @@ export default function Lobby() {
               <p style={{ color: '#FF4655', fontSize: '0.78rem', letterSpacing: '0.15em', textTransform: 'uppercase', margin: '0 0 10px' }}>
                 Protocolo 01
               </p>
-              <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '3.5rem', letterSpacing: '0.07em', lineHeight: 0.95, margin: '0 0 32px' }}>
+              <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: 'clamp(2.2rem, 8vw, 3.5rem)', letterSpacing: '0.07em', lineHeight: 0.95, margin: '0 0 32px' }}>
                 CREAR SALA
               </h1>
 
@@ -392,7 +395,7 @@ export default function Lobby() {
               <p style={{ color: '#FF4655', fontSize: '0.78rem', letterSpacing: '0.15em', textTransform: 'uppercase', margin: '0 0 10px' }}>
                 Sala "{salaId}"
               </p>
-              <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '4rem', letterSpacing: '0.07em', lineHeight: 0.95, margin: 0 }}>
+              <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: 'clamp(2rem, 8vw, 4rem)', letterSpacing: '0.07em', lineHeight: 0.95, margin: 0 }}>
                 ESPERANDO JUGADORES
               </h1>
               <p style={{ color: '#c2c8ce', fontSize: '1rem', lineHeight: 1.6, margin: '18px 0 8px' }}>
@@ -488,7 +491,7 @@ export default function Lobby() {
                 <p style={{ color: '#FF4655', fontSize: '0.78rem', letterSpacing: '0.15em', textTransform: 'uppercase', margin: '0 0 10px' }}>
                   Arena multijugador
                 </p>
-                <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '4rem', letterSpacing: '0.07em', lineHeight: 0.95, margin: 0 }}>
+                <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: 'clamp(2.4rem, 8vw, 4rem)', letterSpacing: '0.07em', lineHeight: 0.95, margin: 0 }}>
                   SALAS DISPONIBLES
                 </h1>
               </div>
@@ -508,58 +511,61 @@ export default function Lobby() {
                 />
               </div>
 
-              {/* Tabla */}
+              {/* Tabla (scroll horizontal en pantallas angostas) */}
               <div style={{
                 border: '1px solid rgba(255, 70, 85, 0.42)',
-                background: 'rgba(10, 16, 22, 0.82)'
+                background: 'rgba(10, 16, 22, 0.82)',
+                overflowX: 'auto'
               }}>
-                <div style={{
-                  display: 'grid', gridTemplateColumns: '1.5fr 0.7fr 0.9fr',
-                  gap: '12px', padding: '14px 20px',
-                  borderBottom: '1px solid rgba(255, 70, 85, 0.28)',
-                  color: '#c2c8ce', fontSize: '0.7rem',
-                  letterSpacing: '0.13em', textTransform: 'uppercase'
-                }}>
-                  <span>Sala</span>
-                  <span>Jugadores</span>
-                  <span>Estado</span>
-                </div>
-
-                {salasFiltradas.length === 0 ? (
-                  <div style={{ padding: '46px 24px', color: '#c2c8ce', textAlign: 'center' }}>
-                    <p style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '1.7rem', letterSpacing: '0.08em', margin: 0 }}>
-                      {busqueda ? 'SIN RESULTADOS' : 'SIN SALAS DISPONIBLES'}
-                    </p>
-                    <p style={{ fontSize: '0.9rem', margin: '10px 0 0' }}>
-                      {busqueda ? `No hay salas con el nombre "${busqueda}"` : 'Crea una sala para iniciar una nueva partida.'}
-                    </p>
+                <div style={{ minWidth: '460px' }}>
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: '1.5fr 0.7fr 0.9fr',
+                    gap: '12px', padding: '14px 20px',
+                    borderBottom: '1px solid rgba(255, 70, 85, 0.28)',
+                    color: '#c2c8ce', fontSize: '0.7rem',
+                    letterSpacing: '0.13em', textTransform: 'uppercase'
+                  }}>
+                    <span>Sala</span>
+                    <span>Jugadores</span>
+                    <span>Estado</span>
                   </div>
-                ) : (
-                  salasFiltradas.map((sala) => (
-                    <motion.button key={sala.id}
-                      whileHover={{ backgroundColor: 'rgba(255, 70, 85, 0.12)' }}
-                      onClick={() => elegirSalaParaUnirse(sala.id)}
-                      style={{
-                        width: '100%', cursor: 'pointer',
-                        display: 'grid', gridTemplateColumns: '1.5fr 0.7fr 0.9fr',
-                        gap: '12px', alignItems: 'center',
-                        padding: '18px 20px', color: 'white',
-                        background: 'transparent', border: 'none',
-                        borderTop: '1px solid rgba(255, 70, 85, 0.15)',
-                        textAlign: 'left'
-                      }}>
-                      <span style={{ fontFamily: "'Bebas Neue', cursive", fontSize: '1.4rem', letterSpacing: '0.08em' }}>
-                        {sala.id}
-                      </span>
-                      <span style={{ color: '#c2c8ce', fontSize: '0.9rem' }}>
-                        {sala.jugadores}/4
-                      </span>
-                      <span style={{ color: '#FF4655', fontSize: '0.7rem', letterSpacing: '0.11em', textTransform: 'uppercase' }}>
-                        Disponible
-                      </span>
-                    </motion.button>
-                  ))
-                )}
+
+                  {salasFiltradas.length === 0 ? (
+                    <div style={{ padding: '46px 24px', color: '#c2c8ce', textAlign: 'center' }}>
+                      <p style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '1.7rem', letterSpacing: '0.08em', margin: 0 }}>
+                        {busqueda ? 'SIN RESULTADOS' : 'SIN SALAS DISPONIBLES'}
+                      </p>
+                      <p style={{ fontSize: '0.9rem', margin: '10px 0 0' }}>
+                        {busqueda ? `No hay salas con el nombre "${busqueda}"` : 'Crea una sala para iniciar una nueva partida.'}
+                      </p>
+                    </div>
+                  ) : (
+                    salasFiltradas.map((sala) => (
+                      <motion.button key={sala.id}
+                        whileHover={{ backgroundColor: 'rgba(255, 70, 85, 0.12)' }}
+                        onClick={() => elegirSalaParaUnirse(sala.id)}
+                        style={{
+                          width: '100%', cursor: 'pointer',
+                          display: 'grid', gridTemplateColumns: '1.5fr 0.7fr 0.9fr',
+                          gap: '12px', alignItems: 'center',
+                          padding: '18px 20px', color: 'white',
+                          background: 'transparent', border: 'none',
+                          borderTop: '1px solid rgba(255, 70, 85, 0.15)',
+                          textAlign: 'left'
+                        }}>
+                        <span style={{ fontFamily: "'Bebas Neue', cursive", fontSize: '1.4rem', letterSpacing: '0.08em' }}>
+                          {sala.id}
+                        </span>
+                        <span style={{ color: '#c2c8ce', fontSize: '0.9rem' }}>
+                          {sala.jugadores}/4
+                        </span>
+                        <span style={{ color: '#FF4655', fontSize: '0.7rem', letterSpacing: '0.11em', textTransform: 'uppercase' }}>
+                          Disponible
+                        </span>
+                      </motion.button>
+                    ))
+                  )}
+                </div>
               </div>
 
               {mensajeEspera && (
@@ -588,7 +594,7 @@ export default function Lobby() {
               <p style={{ color: '#FF4655', fontSize: '0.78rem', letterSpacing: '0.15em', textTransform: 'uppercase', margin: '0 0 10px' }}>
                 Sala "{salaId}"
               </p>
-              <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: '3.2rem', letterSpacing: '0.07em', lineHeight: 0.95, margin: '0 0 28px' }}>
+              <h1 style={{ color: 'white', fontFamily: "'Bebas Neue', cursive", fontSize: 'clamp(2rem, 8vw, 3.2rem)', letterSpacing: '0.07em', lineHeight: 0.95, margin: '0 0 28px' }}>
                 ELIGE TU COLOR
               </h1>
 

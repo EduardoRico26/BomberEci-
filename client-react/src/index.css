@@ -82,6 +82,13 @@ body {
 .input-val:focus { border-bottom-color: var(--val-red); }
 .input-val::placeholder { color: var(--val-gray); font-size: 0.9rem; }
 
+/* Objetivo táctil mínimo (44px) en móvil/tablet para botones e inputs */
+@media (max-width: 1023px) {
+  .btn-val, .btn-val-outline, .input-val {
+    min-height: 44px;
+  }
+}
+
 /* Card con esquina cortada */
 .card-val {
   background: rgba(15, 25, 35, 0.92);

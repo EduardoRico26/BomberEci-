@@ -13,11 +13,13 @@ export default function Inicio() {
 
   return (
     <div
+      className="flex flex-col items-center justify-center px-4 py-10 md:block md:px-0 md:py-0"
       style={{
         width: '100%',
-        height: '100vh',
+        minHeight: '100vh',
         position: 'relative',
-        overflow: 'hidden',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         background: '#0a1016'
       }}
     >
@@ -30,11 +32,13 @@ export default function Inicio() {
           inset: 0,
           width: '100%',
           height: '100%',
-          display: 'block',
           objectFit: 'cover',
           objectPosition: 'center center'
         }}
       />
+
+      {/* Fondo oscuro para legibilidad cuando el panel queda centrado en móvil */}
+      <div className="block md:hidden" style={{ position: 'absolute', inset: 0, background: 'rgba(10,16,22,0.82)' }} />
 
       {/* Botón para cerrar sesión */}
       <motion.button
@@ -44,10 +48,11 @@ export default function Inicio() {
         className="btn-val-outline"
         style={{
           position: 'absolute',
-          top: '32px',
-          right: '40px',
+          top: '20px',
+          right: '20px',
           zIndex: 10,
-          fontSize: '0.75rem'
+          fontSize: '0.7rem',
+          padding: '10px 16px'
         }}
       >
         CERRAR SESIÓN
@@ -58,15 +63,7 @@ export default function Inicio() {
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        style={{
-          position: 'absolute',
-          right: '6%',
-          top: '25%',
-          transform: 'translateY(-50%)',
-          width: 'min(440px, 36vw)',
-          minWidth: '320px',
-          zIndex: 10
-        }}
+        className="relative z-10 w-full max-w-[440px] mx-auto mt-16 md:mt-0 md:absolute md:right-[6%] md:top-1/4 md:-translate-y-1/2 md:w-[min(440px,36vw)] md:min-w-[320px] md:mx-0"
       >
         <div style={{ marginBottom: '36px' }}>
           <div
@@ -93,7 +90,7 @@ export default function Inicio() {
           <h1
             style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: '4rem',
+              fontSize: 'clamp(2.4rem, 9vw, 4rem)',
               color: 'white',
               letterSpacing: '0.08em',
               lineHeight: 1,
@@ -106,7 +103,7 @@ export default function Inicio() {
 
         <p
           style={{
-            fontSize: '1rem',
+            fontSize: 'clamp(0.9rem, 2.5vw, 1rem)',
             color: '#c2c8ce',
             lineHeight: 1.6,
             marginBottom: '28px'
@@ -123,8 +120,8 @@ export default function Inicio() {
           className="btn-val"
           style={{
             width: '100%',
-            fontSize: '1.2rem',
-            padding: '18px'
+            fontSize: 'clamp(1rem, 3vw, 1.2rem)',
+            padding: 'clamp(14px, 3vw, 18px)'
           }}
         >
           ▶ JUGAR

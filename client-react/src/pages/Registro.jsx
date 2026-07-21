@@ -82,24 +82,26 @@ export default function Registro() {
 
   return (
     <div
+      className="flex flex-col items-center justify-center px-4 py-10 md:block md:px-0 md:py-0"
       style={{
         width: '100%',
-        height: '100vh',
+        minHeight: '100vh',
         position: 'relative',
-        overflow: 'hidden',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         background: '#0a1016'
       }}
     >
-      {/* Imagen completa de fondo, sin división ni degradado */}
+      {/* Imagen completa de fondo, sin división ni degradado; oculta en móvil (<768px) */}
       <img
         src="/bg-login.png"
         alt="BomberEci Arena"
+        className="hidden md:block"
         style={{
           position: 'absolute',
           inset: 0,
           width: '100%',
           height: '100%',
-          display: 'block',
           objectFit: 'cover',
           objectPosition: 'center center'
         }}
@@ -110,17 +112,7 @@ export default function Registro() {
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        style={{
-          position: 'absolute',
-          right: '6%',
-          top: '25%',
-          transform: 'translateY(-50%)',
-          width: 'min(440px, calc(100vw - 48px))',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          padding: '8px',
-          zIndex: 10
-        }}
+        className="relative z-10 w-full max-w-[440px] mx-auto max-h-[90vh] overflow-y-auto p-2 md:absolute md:right-[6%] md:top-1/4 md:-translate-y-1/2 md:w-[min(440px,36vw)] md:mx-0"
       >
         {/* Título */}
         <div style={{ marginBottom: '28px' }}>
@@ -136,7 +128,7 @@ export default function Registro() {
           <h1
             style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: '4rem',
+              fontSize: 'clamp(2.4rem, 8vw, 4rem)',
               color: 'white',
               letterSpacing: '0.08em',
               lineHeight: 1,

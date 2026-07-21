@@ -54,18 +54,21 @@ export default function Login() {
 
   return (
     <div
+      className="flex flex-col items-center justify-center px-4 py-10 md:block md:px-0 md:py-0"
       style={{
-        width: '100vw',
-        height: '100vh',
+        width: '100%',
+        minHeight: '100vh',
         position: 'relative',
-        overflow: 'hidden',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         background: '#0a1016'
       }}
     >
-      {/* Fondo completo sin recortar la imagen */}
+      {/* Fondo completo sin recortar la imagen: oculto en móvil (<768px) para dejar solo el formulario */}
       <img
         src="/bg-login.png"
         alt="BomberEci Arena"
+        className="hidden md:block"
         style={{
           position: 'absolute',
           inset: 0,
@@ -79,6 +82,7 @@ export default function Login() {
 
       {/* Oscurece la parte derecha para mejorar la lectura */}
       <div
+        className="hidden md:block"
         style={{
           position: 'absolute',
           inset: 0,
@@ -91,15 +95,7 @@ export default function Login() {
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        style={{
-          position: 'absolute',
-          right: '6%',
-          top: '25%',
-          transform: 'translateY(-50%)',
-          width: 'min(440px, 36vw)',
-          minWidth: '320px',
-          zIndex: 10
-        }}
+        className="relative z-10 w-full max-w-[440px] mx-auto max-h-[90vh] overflow-y-auto md:absolute md:right-[6%] md:top-1/4 md:-translate-y-1/2 md:w-[min(440px,36vw)] md:min-w-[320px] md:mx-0"
       >
         {/* Título */}
         <div style={{ marginBottom: '36px' }}>
@@ -115,7 +111,7 @@ export default function Login() {
           <h1
             style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: '4rem',
+              fontSize: 'clamp(2.6rem, 9vw, 4rem)',
               color: 'white',
               letterSpacing: '0.08em',
               lineHeight: 1,
@@ -128,7 +124,7 @@ export default function Login() {
           <h2
             style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: '2rem',
+              fontSize: 'clamp(1.4rem, 5vw, 2rem)',
               color: '#FF4655',
               letterSpacing: '0.08em',
               margin: '4px 0 0'

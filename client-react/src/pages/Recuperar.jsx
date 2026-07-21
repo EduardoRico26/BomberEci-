@@ -38,15 +38,17 @@ export default function Recuperar() {
 
   return (
     <div
+      className="flex flex-col items-center justify-center px-4 py-10 md:block md:px-0 md:py-0"
       style={{
         width: '100%',
-        height: '100vh',
+        minHeight: '100vh',
         position: 'relative',
-        overflow: 'hidden',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         background: '#0a1016'
       }}
     >
-      {/* Imagen completa de fondo */}
+      {/* Imagen completa de fondo (visible en todos los tamaños, con panel legible encima) */}
       <img
         src="/bg-login.png"
         alt="BomberEci Arena"
@@ -55,25 +57,20 @@ export default function Recuperar() {
           inset: 0,
           width: '100%',
           height: '100%',
-          display: 'block',
           objectFit: 'cover',
           objectPosition: 'center center'
         }}
       />
+
+      {/* Fondo oscuro para legibilidad cuando el panel queda centrado en móvil */}
+      <div className="block md:hidden" style={{ position: 'absolute', inset: 0, background: 'rgba(10,16,22,0.82)' }} />
 
       {/* Contenido en la misma ubicación del Login */}
       <motion.div
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        style={{
-          position: 'absolute',
-          right: '6%',
-          top: '25%',
-          transform: 'translateY(-50%)',
-          width: 'min(440px, calc(100vw - 48px))',
-          zIndex: 10
-        }}
+        className="relative z-10 w-full max-w-[440px] mx-auto max-h-[90vh] overflow-y-auto md:absolute md:right-[6%] md:top-1/4 md:-translate-y-1/2 md:w-[min(440px,36vw)] md:mx-0"
       >
         {/* Título */}
         <div style={{ marginBottom: '32px' }}>
@@ -89,7 +86,7 @@ export default function Recuperar() {
           <h1
             style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: '4rem',
+              fontSize: 'clamp(2.6rem, 9vw, 4rem)',
               color: 'white',
               letterSpacing: '0.08em',
               lineHeight: 1,
@@ -102,7 +99,7 @@ export default function Recuperar() {
           <h2
             style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: '2rem',
+              fontSize: 'clamp(1.4rem, 5vw, 2rem)',
               color: '#FF4655',
               letterSpacing: '0.08em',
               margin: '4px 0 0'

@@ -55,11 +55,13 @@ export default function NuevaPassword() {
   };
 
   return (
-    <div style={{
-      width: '100vw', height: '100vh',
-      position: 'relative', overflow: 'hidden',
-      background: '#0f1923'
-    }}>
+    <div
+      className="flex flex-col items-center justify-center px-4 py-10 md:block md:px-0 md:py-0"
+      style={{
+        width: '100%', minHeight: '100vh',
+        position: 'relative', overflowY: 'auto', overflowX: 'hidden',
+        background: '#0f1923'
+      }}>
 
       {/* Imagen de fondo */}
       <img src="/bg-login.png" alt="BomberEci Arena"
@@ -82,29 +84,27 @@ export default function NuevaPassword() {
         background: 'rgba(8, 12, 18, 0.35)', zIndex: 1
       }}/>
 
+      {/* Fondo oscuro adicional para legibilidad cuando el panel queda centrado en móvil */}
+      <div className="block md:hidden" style={{ position: 'absolute', inset: 0, background: 'rgba(10,16,22,0.85)', zIndex: 1 }} />
+
       {/* Formulario */}
       <motion.div
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        style={{
-          position: 'absolute',
-          right: '4%', top: '50%',
-          transform: 'translateY(-50%)',
-          width: '380px', zIndex: 10
-        }}>
+        className="relative z-10 w-full max-w-[380px] mx-auto max-h-[90vh] overflow-y-auto md:absolute md:right-[4%] md:top-1/2 md:-translate-y-1/2 md:mx-0">
 
         {/* Título */}
         <div style={{ marginBottom: '32px' }}>
           <div style={{ width: '48px', height: '3px', background: '#FF4655', marginBottom: '16px' }}/>
           <h1 style={{
             fontFamily: "'Bebas Neue', cursive",
-            fontSize: '3.5rem', color: 'white',
+            fontSize: 'clamp(2.3rem, 8vw, 3.5rem)', color: 'white',
             letterSpacing: '0.08em', lineHeight: 1, marginBottom: '4px'
           }}>NUEVA</h1>
           <h2 style={{
             fontFamily: "'Bebas Neue', cursive",
-            fontSize: '1.8rem', color: '#FF4655', letterSpacing: '0.08em'
+            fontSize: 'clamp(1.25rem, 4.5vw, 1.8rem)', color: '#FF4655', letterSpacing: '0.08em'
           }}>CONTRASEÑA</h2>
           <p style={{
             fontSize: '0.75rem', color: '#768079',
