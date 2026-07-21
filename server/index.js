@@ -154,6 +154,15 @@ async function salirDeSalaActual(socket, salaId) {
       logger.info({ event: 'sala_vacia_eliminada', salaId });
     } else {
       io.to(salaId).emit('jugadores_sala', salaRestante.jugadores);
+
+      // Si la partida ya estaba en curso y con esta salida queda un solo
+      // jugador en pie, se le da la victoria automáticamente en vez de
+      // dejarlo esperando una explosión que nunca va a llegar de un rival
+      // que ya no está.
+      if (salaRestante.enPartida && room) {
+        const estadoJuego = await room.getEstado();
+        if (estadoJuego) await room.verificarYFinalizarSiHayGanador(estadoJuego);
+      }
     }
 
     metrics.salasActivas.set(rooms.size);
