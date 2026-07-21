@@ -95,7 +95,7 @@ export default function Login() {
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        className="relative z-10 w-full max-w-[440px] mx-auto max-h-[90vh] overflow-y-auto md:absolute md:right-[6%] md:top-1/4 md:-translate-y-1/2 md:w-[min(440px,36vw)] md:min-w-[320px] md:mx-0"
+        className="relative z-10 w-full max-w-[440px] mx-auto max-h-[90vh] overflow-y-auto md:absolute md:right-[6%] md:top-[62%] md:-translate-y-1/2 md:w-[min(440px,36vw)] md:min-w-[320px] md:mx-0"
       >
         {/* Título */}
         <div style={{ marginBottom: '36px' }}>
