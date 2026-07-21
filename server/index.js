@@ -133,6 +133,36 @@ app.get('/metrics', async (req, res) => {
   }
 });
 
+// Compartida entre 'disconnect' (el jugador cierra/pierde conexión) y
+// 'salir_sala' (el jugador pulsa "Salir" estando conectado): en ambos casos
+// hay que sacarlo del roster del lobby, del GameRoom y avisar al resto,
+// para no duplicar esa lógica en dos handlers.
+async function salirDeSalaActual(socket, salaId) {
+  try {
+    await lobby.eliminarJugador(socket.id);
+    const room = rooms.get(salaId);
+    if (room) {
+      await room.eliminarJugador(socket.id);
+      io.to(salaId).emit('jugador_salio', { socketId: socket.id });
+    }
+
+    const salaRestante = await lobby.getSala(salaId);
+    if (!salaRestante) {
+      if (room) room.destruirLocal();
+      await GameRoom.eliminarEstado(salaId);
+      rooms.delete(salaId);
+      logger.info({ event: 'sala_vacia_eliminada', salaId });
+    } else {
+      io.to(salaId).emit('jugadores_sala', salaRestante.jugadores);
+    }
+
+    metrics.salasActivas.set(rooms.size);
+    await difundirListaSalas();
+  } catch (err) {
+    logger.error({ event: 'salir_sala_error', salaId, socketId: socket.id, error: err.message, stack: err.stack });
+  }
+}
+
 io.on('connection', (socket) => {
   metrics.jugadoresConectados.inc();
   logger.info({ event: 'player_connected', socketId: socket.id });
@@ -292,39 +322,23 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── SALIR DE LA SALA (botón del jugador, sin desconectar el socket) ──
+  socket.on('salir_sala', async () => {
+    if (!socket.salaId) return;
+    const salaId = socket.salaId;
+    logger.info({ event: 'jugador_salio_voluntariamente', salaId, socketId: socket.id });
+    socket.leave(salaId);
+    socket.salaId = null;
+    await salirDeSalaActual(socket, salaId);
+  });
+
   // ── DESCONEXIÓN ─────────────────────────────────────
   socket.on('disconnect', async () => {
     metrics.jugadoresConectados.dec();
     logger.info({ event: 'player_disconnected', socketId: socket.id });
     if (!socket.salaId) return;
     const salaId = socket.salaId;
-    try {
-      // lobby.eliminarJugador ya borra la sala del LobbyManager/Redis si
-      // queda sin jugadores; se usa ese resultado como fuente de verdad
-      // (el roster del lobby vive durante todo el juego, no solo antes de
-      // iniciar) para decidir si también hay que borrar el GameRoom.
-      await lobby.eliminarJugador(socket.id);
-      const room = rooms.get(salaId);
-      if (room) {
-        await room.eliminarJugador(socket.id);
-        io.to(salaId).emit('jugador_salio', { socketId: socket.id });
-      }
-
-      const salaRestante = await lobby.getSala(salaId);
-      if (!salaRestante) {
-        if (room) room.destruirLocal();
-        await GameRoom.eliminarEstado(salaId);
-        rooms.delete(salaId);
-        logger.info({ event: 'sala_vacia_eliminada', salaId });
-      } else {
-        io.to(salaId).emit('jugadores_sala', salaRestante.jugadores);
-      }
-
-      metrics.salasActivas.set(rooms.size);
-      await difundirListaSalas();
-    } catch (err) {
-      logger.error({ event: 'disconnect_error', salaId, socketId: socket.id, error: err.message, stack: err.stack });
-    }
+    await salirDeSalaActual(socket, salaId);
   });
 });
 

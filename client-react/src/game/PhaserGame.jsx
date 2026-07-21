@@ -9,7 +9,7 @@ const TILE = 56;
 // 4 = izquierda; paso 1/2 son los dos frames del ciclo de caminar.
 const FILA_DIRECCION = { abajo: 1, arriba: 2, derecha: 3, izquierda: 4 };
 
-export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, onVolverSala }) {
+export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, onVolverSala, onSalirSala }) {
   const contenedor  = useRef(null);
   const juegoRef    = useRef(null);
   const escenaRef   = useRef(null);
@@ -489,18 +489,50 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
         </div>
       </div>
 
-      {/* Tablero */}
-      <div style={{ position: 'relative', zIndex: 5 }}>
-        <div style={esquina('top', 'left')}/>
-        <div style={esquina('top', 'right')}/>
-        <div style={esquina('bottom', 'left')}/>
-        <div style={esquina('bottom', 'right')}/>
-        <div ref={contenedor}
-          style={{
-            border: '1px solid rgba(255,70,85,0.5)',
-            boxShadow: '0 0 70px rgba(255,70,85,0.25), inset 0 0 50px rgba(0,0,0,0.55)'
-          }}
-        />
+      {/* Tablero + panel lateral */}
+      <div style={{ position: 'relative', zIndex: 5, display: 'flex', alignItems: 'center', gap: '28px' }}>
+        <div style={{ position: 'relative' }}>
+          <div style={esquina('top', 'left')}/>
+          <div style={esquina('top', 'right')}/>
+          <div style={esquina('bottom', 'left')}/>
+          <div style={esquina('bottom', 'right')}/>
+          <div ref={contenedor}
+            style={{
+              border: '1px solid rgba(255,70,85,0.5)',
+              boxShadow: '0 0 70px rgba(255,70,85,0.25), inset 0 0 50px rgba(0,0,0,0.55)'
+            }}
+          />
+        </div>
+
+        {/* Salir de la sala */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: '10px',
+          padding: '20px 18px',
+          background: 'rgba(8,12,17,0.75)',
+          border: '1px solid rgba(255,70,85,0.25)',
+          minWidth: '150px'
+        }}>
+          <p style={{
+            fontFamily: "'Bebas Neue', cursive", fontSize: '0.95rem',
+            color: 'white', letterSpacing: '0.07em', margin: 0
+          }}>
+            ABANDONAR
+          </p>
+          <p style={{ fontSize: '0.66rem', color: '#c2c8ce', lineHeight: 1.5, margin: '0 0 4px' }}>
+            Perderás tu progreso en esta partida.
+          </p>
+          <button
+            onClick={() => {
+              if (window.confirm('¿Seguro que quieres salir de la sala?')) {
+                onSalirSala?.();
+              }
+            }}
+            className="btn-val-outline"
+            style={{ fontSize: '0.68rem', padding: '10px 14px', width: '100%' }}
+          >
+            SALIR DE LA SALA
+          </button>
+        </div>
       </div>
 
       {/* Footer */}

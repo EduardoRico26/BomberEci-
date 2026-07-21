@@ -16,9 +16,9 @@ const MAX_REINTENTOS_TRANSACCION = 8;
 
 const SPAWNS = [
   { x: 1, y: 1 },
-  { x: 11, y: 1 },
+  { x: 13, y: 1 },
   { x: 1, y: 11 },
-  { x: 11, y: 11 }
+  { x: 13, y: 11 }
 ];
 
 class GameRoom {

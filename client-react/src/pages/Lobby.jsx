@@ -131,6 +131,17 @@ export default function Lobby() {
     setVista('crear');
   }
 
+  function salirDeSala() {
+    socket.emit('salir_sala');
+    setEstadoInicial(null);
+    setSalaId('');
+    setEsDueno(false);
+    setColorSeleccionado('');
+    setJugadoresSala([]);
+    setMensajeEspera('');
+    setVista('menu');
+  }
+
   async function cerrarSesion() {
     await logout();
     navigate('/login');
@@ -144,6 +155,7 @@ export default function Lobby() {
         miNombre={usuario.nombre}
         salaId={salaId}
         onVolverSala={volverASala}
+        onSalirSala={salirDeSala}
       />
     );
   }
