@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --testPathPatterns=server/tests --forceExit"
   },
   "repository": {
     "type": "git",
@@ -44,5 +44,9 @@
   "allowScripts": {
     "bcrypt@6.0.0": true,
     "protobufjs@7.6.5": true
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2"
   }
 }

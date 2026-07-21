@@ -12,6 +12,7 @@
 
 
 node_modules/
+coverage/
 
 # Package Files #
 *.jar

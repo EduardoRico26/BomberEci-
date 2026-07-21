@@ -441,64 +441,75 @@ async function limpiarSalasHuérfanas() {
   }
 }
 
-setInterval(limpiarSalasHuérfanas, LIMPIEZA_SALAS_INTERVALO_MS);
+// Todo lo que sigue (arrancar a escuchar de verdad, el barrido periódico de
+// salas huérfanas, los handlers de apagado) solo debe correr cuando este
+// archivo se ejecuta como proceso principal (`node server/index.js`, PM2,
+// etc.) — NO cuando los tests lo importan con require('./index') para
+// probar las rutas HTTP con supertest. Sin este guard, cada test suite
+// dejaría un servidor real escuchando en el PORT y un setInterval corriendo
+// de fondo, y no hay forma limpia de cerrarlos entre tests.
+if (require.main === module) {
+  setInterval(limpiarSalasHuérfanas, LIMPIEZA_SALAS_INTERVALO_MS);
 
-const PORT = process.env.PORT || 4517;
-const REDIS_STARTUP_TIMEOUT_MS = 5000;
+  const PORT = process.env.PORT || 4517;
+  const REDIS_STARTUP_TIMEOUT_MS = 5000;
 
-// El reconnectStrategy por defecto de node-redis reintenta indefinidamente
-// incluso en el primer intento de conexión, así que estas promesas nunca
-// se resuelven ni se rechazan solas si Redis está caído. Sin este límite,
-// el servidor jamás llamaría a server.listen() (ni siquiera /health
-// respondería) mientras Redis no esté disponible.
-function conLimite(promesa, etiqueta) {
-  let timer;
-  const timeout = new Promise(resolve => {
-    timer = setTimeout(() => {
-      logger.warn({ event: 'redis_startup_timeout', recurso: etiqueta, timeoutMs: REDIS_STARTUP_TIMEOUT_MS });
-      resolve(false);
-    }, REDIS_STARTUP_TIMEOUT_MS);
+  // El reconnectStrategy por defecto de node-redis reintenta indefinidamente
+  // incluso en el primer intento de conexión, así que estas promesas nunca
+  // se resuelven ni se rechazan solas si Redis está caído. Sin este límite,
+  // el servidor jamás llamaría a server.listen() (ni siquiera /health
+  // respondería) mientras Redis no esté disponible.
+  const conLimite = (promesa, etiqueta) => {
+    let timer;
+    const timeout = new Promise(resolve => {
+      timer = setTimeout(() => {
+        logger.warn({ event: 'redis_startup_timeout', recurso: etiqueta, timeoutMs: REDIS_STARTUP_TIMEOUT_MS });
+        resolve(false);
+      }, REDIS_STARTUP_TIMEOUT_MS);
+    });
+    return Promise.race([promesa.then(() => true).catch(() => false), timeout])
+      .finally(() => clearTimeout(timer));
+  };
+
+  // Arranca el servidor en cuanto el adapter de Socket.io y el LobbyManager
+  // confirmen su conexión a Redis (o tras el timeout de arriba). Si Redis
+  // sigue sin responder después, cada llamada individual en LobbyManager
+  // vuelve a intentarlo y reporta su propio error al jugador.
+  Promise.all([
+    conLimite(adapterListo, 'adapter'),
+    conLimite(lobby.conectar(), 'lobby'),
+    conLimite(salasSubListo, 'salas_sub')
+  ]).then(() => {
+    server.listen(PORT, () => {
+      logger.info({ event: 'server_started', port: PORT });
+      console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    });
   });
-  return Promise.race([promesa.then(() => true).catch(() => false), timeout])
-    .finally(() => clearTimeout(timer));
+
+  // PM2 manda SIGINT/SIGTERM al reiniciar o detener la app. Sin esto, Node
+  // mata el proceso con las conexiones Redis todavía abiertas y el socket se
+  // corta a la fuerza (de ahí el SocketClosedUnexpectedlyError en los logs).
+  // Cerrando el server y los clientes Redis a mano, el cierre es ordenado.
+  let cerrando = false;
+  const apagar = async (señal) => {
+    if (cerrando) return;
+    cerrando = true;
+    logger.info({ event: 'apagando_servidor', señal });
+
+    server.close();
+    await Promise.allSettled([
+      lobby.desconectar(),
+      pubClient.quit(),
+      subClient.quit(),
+      salasSubClient.quit()
+    ]);
+
+    logger.info({ event: 'servidor_apagado' });
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => apagar('SIGINT'));
+  process.on('SIGTERM', () => apagar('SIGTERM'));
 }
 
-// Arranca el servidor en cuanto el adapter de Socket.io y el LobbyManager
-// confirmen su conexión a Redis (o tras el timeout de arriba). Si Redis
-// sigue sin responder después, cada llamada individual en LobbyManager
-// vuelve a intentarlo y reporta su propio error al jugador.
-Promise.all([
-  conLimite(adapterListo, 'adapter'),
-  conLimite(lobby.conectar(), 'lobby'),
-  conLimite(salasSubListo, 'salas_sub')
-]).then(() => {
-  server.listen(PORT, () => {
-    logger.info({ event: 'server_started', port: PORT });
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
-  });
-});
-
-// PM2 manda SIGINT/SIGTERM al reiniciar o detener la app. Sin esto, Node
-// mata el proceso con las conexiones Redis todavía abiertas y el socket se
-// corta a la fuerza (de ahí el SocketClosedUnexpectedlyError en los logs).
-// Cerrando el server y los clientes Redis a mano, el cierre es ordenado.
-let cerrando = false;
-async function apagar(señal) {
-  if (cerrando) return;
-  cerrando = true;
-  logger.info({ event: 'apagando_servidor', señal });
-
-  server.close();
-  await Promise.allSettled([
-    lobby.desconectar(),
-    pubClient.quit(),
-    subClient.quit(),
-    salasSubClient.quit()
-  ]);
-
-  logger.info({ event: 'servidor_apagado' });
-  process.exit(0);
-}
-
-process.on('SIGINT', () => apagar('SIGINT'));
-process.on('SIGTERM', () => apagar('SIGTERM'));
+module.exports = { app, server, io };
