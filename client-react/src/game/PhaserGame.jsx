@@ -13,11 +13,11 @@ const FILA_DIRECCION = { abajo: 1, arriba: 2, derecha: 3, izquierda: 4 };
 // márgenes de respiro) para calcular cuánto se puede escalar el tablero sin
 // que se salga de la pantalla. Son estimaciones deliberadamente generosas:
 // mejor un tablero un poco más chico que uno recortado.
-const RESERVA_HEADER = 96;
-const RESERVA_FOOTER = 90;
-const RESERVA_PANEL  = 220;
-const MARGEN         = 32;
-const ESCALA_MINIMA  = 0.32;
+const RESERVA_HEADER = 64;
+const RESERVA_FOOTER = 56;
+const RESERVA_PANEL  = 170;
+const MARGEN         = 18;
+const ESCALA_MINIMA  = 0.45;
 
 // El tablero de Phaser se renderiza siempre a su resolución nativa (ANCHO x
 // ALTO en píxeles reales); esta función solo calcula cuánto hay que
@@ -480,41 +480,41 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexWrap: 'wrap', rowGap: '8px',
-        padding: '12px clamp(16px, 3vw, 36px)',
+        flexWrap: 'wrap', rowGap: '6px',
+        padding: '8px clamp(14px, 3vw, 32px)',
         background: 'linear-gradient(to bottom, rgba(8,12,17,0.94), rgba(8,12,17,0.55) 75%, transparent)',
         borderBottom: '1px solid rgba(255,70,85,0.25)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img src="/logo.png" alt="Logo"
-            style={{ width: '36px', height: '36px', objectFit: 'contain' }}/>
+            style={{ width: '26px', height: '26px', objectFit: 'contain' }}/>
           <div>
-            <p style={{ fontFamily: "'Bebas Neue', cursive", fontSize: '1.2rem', color: 'white', letterSpacing: '0.08em', margin: 0, lineHeight: 1 }}>
+            <p style={{ fontFamily: "'Bebas Neue', cursive", fontSize: '1rem', color: 'white', letterSpacing: '0.08em', margin: 0, lineHeight: 1 }}>
               BOMBERECI ARENA
             </p>
-            <p style={{ fontSize: '0.62rem', color: '#FF4655', textTransform: 'uppercase', letterSpacing: '0.2em', margin: '3px 0 0' }}>
+            <p style={{ fontSize: '0.56rem', color: '#FF4655', textTransform: 'uppercase', letterSpacing: '0.18em', margin: '2px 0 0' }}>
               En partida · Sala {salaId}
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {estadoInicial.jugadores.map(j => {
             const c     = colorPorId(j.color);
             const esMio = j.id === socket.id;
             return (
               <div key={j.id} style={{
-                display: 'flex', alignItems: 'center', gap: '7px',
-                padding: '6px 12px',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '4px 10px',
                 background: esMio ? 'rgba(255,70,85,0.12)' : 'rgba(255,255,255,0.04)',
                 border: `1px solid ${esMio ? '#FF4655' : 'rgba(255,255,255,0.14)'}`
               }}>
                 <span style={{
-                  width: '8px', height: '8px', borderRadius: '50%',
+                  width: '7px', height: '7px', borderRadius: '50%',
                   background: c.css, boxShadow: `0 0 6px ${c.css}`
                 }}/>
                 <span style={{
-                  fontFamily: "'Bebas Neue', cursive", fontSize: '0.85rem',
+                  fontFamily: "'Bebas Neue', cursive", fontSize: '0.78rem',
                   color: 'white', letterSpacing: '0.05em'
                 }}>
                   {j.nombre.substring(0, 10)}
@@ -526,7 +526,7 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
       </div>
 
       {/* Tablero + panel lateral */}
-      <div style={{ position: 'relative', zIndex: 5, display: 'flex', alignItems: 'center', gap: '28px' }}>
+      <div style={{ position: 'relative', zIndex: 5, display: 'flex', alignItems: 'center', gap: '18px' }}>
         {/* Caja al tamaño visual final (ANCHO/ALTO ya escalados): define el
             espacio real que ocupa en la página y recorta el sobrante del
             hijo sin escalar de abajo. */}
@@ -552,19 +552,19 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
 
         {/* Salir de la sala */}
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: '10px',
-          padding: '20px 18px',
+          display: 'flex', flexDirection: 'column', gap: '7px',
+          padding: '14px 13px',
           background: 'rgba(8,12,17,0.75)',
           border: '1px solid rgba(255,70,85,0.25)',
-          minWidth: '150px'
+          minWidth: '120px'
         }}>
           <p style={{
-            fontFamily: "'Bebas Neue', cursive", fontSize: '0.95rem',
+            fontFamily: "'Bebas Neue', cursive", fontSize: '0.8rem',
             color: 'white', letterSpacing: '0.07em', margin: 0
           }}>
             ABANDONAR
           </p>
-          <p style={{ fontSize: '0.66rem', color: '#c2c8ce', lineHeight: 1.5, margin: '0 0 4px' }}>
+          <p style={{ fontSize: '0.6rem', color: '#c2c8ce', lineHeight: 1.4, margin: '0 0 2px' }}>
             Perderás tu progreso en esta partida.
           </p>
           <button
@@ -574,7 +574,7 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
               }
             }}
             className="btn-val-outline"
-            style={{ fontSize: '0.68rem', padding: '10px 14px', width: '100%' }}
+            style={{ fontSize: '0.62rem', padding: '8px 10px', width: '100%' }}
           >
             SALIR DE LA SALA
           </button>
@@ -583,17 +583,17 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
 
       {/* Footer */}
       <div style={{
-        position: 'absolute', bottom: '22px', zIndex: 10,
-        display: 'flex', gap: '18px', alignItems: 'center',
-        padding: '10px 22px',
+        position: 'absolute', bottom: '10px', zIndex: 10,
+        display: 'flex', gap: '14px', alignItems: 'center',
+        padding: '7px 18px',
         background: 'rgba(8,12,17,0.75)',
         border: '1px solid rgba(255,70,85,0.25)'
       }}>
-        <span style={{ fontSize: '0.68rem', color: '#c2c8ce', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+        <span style={{ fontSize: '0.62rem', color: '#c2c8ce', textTransform: 'uppercase', letterSpacing: '0.13em' }}>
           Flechas / WASD — Mover
         </span>
         <span style={{ color: 'rgba(255,70,85,0.4)' }}>|</span>
-        <span style={{ fontSize: '0.68rem', color: '#c2c8ce', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+        <span style={{ fontSize: '0.62rem', color: '#c2c8ce', textTransform: 'uppercase', letterSpacing: '0.13em' }}>
           Espacio — Bomba
         </span>
       </div>
