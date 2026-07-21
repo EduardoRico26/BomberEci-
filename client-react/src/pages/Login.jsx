@@ -99,23 +99,23 @@ export default function Login() {
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-[440px]"
+        className="w-full max-w-[360px]"
       >
         {/* Título */}
-        <div style={{ marginBottom: '36px' }}>
+        <div style={{ marginBottom: '24px' }}>
           <div
             style={{
-              width: '58px',
-              height: '4px',
+              width: '46px',
+              height: '3px',
               background: '#FF4655',
-              marginBottom: '18px'
+              marginBottom: '14px'
             }}
           />
 
           <h1
             style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: 'clamp(2.6rem, 9vw, 4rem)',
+              fontSize: 'clamp(2rem, 6vw, 2.9rem)',
               color: 'white',
               letterSpacing: '0.08em',
               lineHeight: 1,
@@ -128,10 +128,10 @@ export default function Login() {
           <h2
             style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: 'clamp(1.4rem, 5vw, 2rem)',
+              fontSize: 'clamp(1.1rem, 3.5vw, 1.45rem)',
               color: '#FF4655',
               letterSpacing: '0.08em',
-              margin: '4px 0 0'
+              margin: '2px 0 0'
             }}
           >
             ARENA
@@ -139,11 +139,11 @@ export default function Login() {
 
           <p
             style={{
-              fontSize: '0.82rem',
+              fontSize: '0.76rem',
               color: '#9aa4ad',
               textTransform: 'uppercase',
               letterSpacing: '0.15em',
-              marginTop: '12px'
+              marginTop: '9px'
             }}
           >
             Inicia sesión para jugar
@@ -155,7 +155,7 @@ export default function Login() {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '28px'
+            gap: '18px'
           }}
         >
           
@@ -167,8 +167,8 @@ export default function Login() {
           >
             <div
               style={{
-                fontSize: '0.9rem',
-                padding: '12px 16px',
+                fontSize: '0.82rem',
+                padding: '9px 13px',
                 borderLeft: `3px solid ${
                   mensaje.tipo === 'exito' ? '#22c55e' : '#FF4655'
                 }`,
@@ -225,7 +225,7 @@ export default function Login() {
           >
             <label
               style={{
-                fontSize: '0.78rem',
+                fontSize: '0.7rem',
                 color: '#9aa4ad',
                 textTransform: 'uppercase',
                 letterSpacing: '0.15em'
@@ -243,8 +243,8 @@ export default function Login() {
               placeholder="tucorreo@gmail.com"
               className="input-val"
               style={{
-                fontSize: '1.1rem',
-                padding: '18px 8px'
+                fontSize: '0.95rem',
+                padding: '13px 8px'
               }}
             />
           </div>
@@ -258,7 +258,7 @@ export default function Login() {
           >
             <label
               style={{
-                fontSize: '0.78rem',
+                fontSize: '0.7rem',
                 color: '#9aa4ad',
                 textTransform: 'uppercase',
                 letterSpacing: '0.15em'
@@ -276,8 +276,8 @@ export default function Login() {
               placeholder="••••••••"
               className="input-val"
               style={{
-                fontSize: '1.1rem',
-                padding: '18px 8px'
+                fontSize: '0.95rem',
+                padding: '13px 8px'
               }}
             />
           </div>
@@ -288,9 +288,9 @@ export default function Login() {
             className="btn-val"
             style={{
               width: '100%',
-              fontSize: '1.2rem',
-              padding: '18px',
-              marginTop: '6px'
+              fontSize: '1rem',
+              padding: '13px',
+              marginTop: '2px'
             }}
           >
             {cargando ? 'INICIANDO...' : 'INICIAR SESIÓN'}
@@ -301,7 +301,7 @@ export default function Login() {
               display: 'flex',
               justifyContent: 'space-between',
               gap: '16px',
-              fontSize: '0.76rem',
+              fontSize: '0.7rem',
               textTransform: 'uppercase',
               letterSpacing: '0.08em'
             }}
@@ -332,7 +332,7 @@ export default function Login() {
 
         <div
           style={{
-            marginTop: '36px',
+            marginTop: '24px',
             height: '1px',
             background: 'linear-gradient(to right, #FF4655, transparent)'
           }}

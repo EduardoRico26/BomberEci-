@@ -126,23 +126,23 @@ export default function Registro() {
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-[440px]"
+        className="w-full max-w-[360px]"
       >
         {/* Título */}
-        <div style={{ marginBottom: '28px' }}>
+        <div style={{ marginBottom: '20px' }}>
           <div
             style={{
-              width: '58px',
-              height: '4px',
+              width: '46px',
+              height: '3px',
               background: '#FF4655',
-              marginBottom: '18px'
+              marginBottom: '12px'
             }}
           />
 
           <h1
             style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: 'clamp(2.4rem, 8vw, 4rem)',
+              fontSize: 'clamp(1.9rem, 6vw, 2.7rem)',
               color: 'white',
               letterSpacing: '0.08em',
               lineHeight: 1,
@@ -154,11 +154,11 @@ export default function Registro() {
 
           <p
             style={{
-              fontSize: '0.82rem',
+              fontSize: '0.75rem',
               color: '#c2c8ce',
               textTransform: 'uppercase',
               letterSpacing: '0.12em',
-              marginTop: '12px'
+              marginTop: '8px'
             }}
           >
             Únete a la arena y comienza a jugar
@@ -169,7 +169,7 @@ export default function Registro() {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '18px'
+            gap: '13px'
           }}
         >
           {mensaje && (
@@ -177,8 +177,8 @@ export default function Registro() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               style={{
-                fontSize: '0.9rem',
-                padding: '12px 16px',
+                fontSize: '0.82rem',
+                padding: '9px 13px',
                 borderLeft: `3px solid ${
                   mensaje.tipo === 'exito' ? '#22c55e' : '#FF4655'
                 }`,
@@ -202,7 +202,7 @@ export default function Registro() {
           >
             <label
               style={{
-                fontSize: '0.78rem',
+                fontSize: '0.7rem',
                 color: '#c2c8ce',
                 textTransform: 'uppercase',
                 letterSpacing: '0.15em'
@@ -217,11 +217,11 @@ export default function Registro() {
               onChange={cambiar}
               placeholder="Ej: Bombero123"
               className="input-val"
-              style={{ fontSize: '1rem', padding: '15px 8px' }}
+              style={{ fontSize: '0.88rem', padding: '11px 8px' }}
             />
 
             {errores.nombre && (
-              <span style={{ fontSize: '0.8rem', color: '#FF4655' }}>
+              <span style={{ fontSize: '0.72rem', color: '#FF4655' }}>
                 {errores.nombre}
               </span>
             )}
@@ -236,7 +236,7 @@ export default function Registro() {
           >
             <label
               style={{
-                fontSize: '0.78rem',
+                fontSize: '0.7rem',
                 color: '#c2c8ce',
                 textTransform: 'uppercase',
                 letterSpacing: '0.15em'
@@ -252,11 +252,11 @@ export default function Registro() {
               onChange={cambiar}
               placeholder="tucorreo@gmail.com"
               className="input-val"
-              style={{ fontSize: '1rem', padding: '15px 8px' }}
+              style={{ fontSize: '0.88rem', padding: '11px 8px' }}
             />
 
             {errores.correo && (
-              <span style={{ fontSize: '0.8rem', color: '#FF4655' }}>
+              <span style={{ fontSize: '0.72rem', color: '#FF4655' }}>
                 {errores.correo}
               </span>
             )}
@@ -273,7 +273,7 @@ export default function Registro() {
             >
               <label
                 style={{
-                  fontSize: '0.78rem',
+                  fontSize: '0.7rem',
                   color: '#c2c8ce',
                   textTransform: 'uppercase',
                   letterSpacing: '0.12em'
@@ -289,11 +289,11 @@ export default function Registro() {
                 onChange={cambiar}
                 placeholder="Mínimo 8"
                 className="input-val"
-                style={{ fontSize: '1rem', padding: '15px 8px' }}
+                style={{ fontSize: '0.88rem', padding: '11px 8px' }}
               />
 
               {errores.password && (
-                <span style={{ fontSize: '0.8rem', color: '#FF4655' }}>
+                <span style={{ fontSize: '0.72rem', color: '#FF4655' }}>
                   {errores.password}
                 </span>
               )}
@@ -309,7 +309,7 @@ export default function Registro() {
             >
               <label
                 style={{
-                  fontSize: '0.78rem',
+                  fontSize: '0.7rem',
                   color: '#c2c8ce',
                   textTransform: 'uppercase',
                   letterSpacing: '0.12em'
@@ -325,11 +325,11 @@ export default function Registro() {
                 onChange={cambiar}
                 placeholder="Repite clave"
                 className="input-val"
-                style={{ fontSize: '1rem', padding: '15px 8px' }}
+                style={{ fontSize: '0.88rem', padding: '11px 8px' }}
               />
 
               {errores.confirmar && (
-                <span style={{ fontSize: '0.8rem', color: '#FF4655' }}>
+                <span style={{ fontSize: '0.72rem', color: '#FF4655' }}>
                   {errores.confirmar}
                 </span>
               )}
@@ -342,9 +342,9 @@ export default function Registro() {
             className="btn-val"
             style={{
               width: '100%',
-              fontSize: '1.15rem',
-              padding: '17px',
-              marginTop: '4px'
+              fontSize: '0.98rem',
+              padding: '13px',
+              marginTop: '2px'
             }}
           >
             {cargando ? 'CREANDO CUENTA...' : 'CREAR CUENTA'}
@@ -352,7 +352,7 @@ export default function Registro() {
 
           <p
             style={{
-              fontSize: '0.76rem',
+              fontSize: '0.7rem',
               color: '#c2c8ce',
               textTransform: 'uppercase',
               letterSpacing: '0.08em'
@@ -373,7 +373,7 @@ export default function Registro() {
 
         <div
           style={{
-            marginTop: '28px',
+            marginTop: '18px',
             height: '1px',
             background: 'linear-gradient(to right, #FF4655, transparent)'
           }}

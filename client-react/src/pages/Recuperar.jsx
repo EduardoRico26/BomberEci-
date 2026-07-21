@@ -37,56 +37,68 @@ export default function Recuperar() {
   }
 
   return (
-    <div
-      className="flex flex-col items-center justify-center px-4 py-10 md:block md:px-0 md:py-0"
-      style={{
-        width: '100%',
-        minHeight: '100vh',
-        position: 'relative',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        background: '#0a1016'
-      }}
-    >
-      {/* Imagen completa de fondo (visible en todos los tamaños, con panel legible encima) */}
-      <img
-        src="/bg-login.png"
-        alt="BomberEci Arena"
+    <div style={{ width: '100%', minHeight: '100vh', display: 'flex' }}>
+
+      {/* Columna izquierda (60%): imagen decorativa, oculta en móvil (<768px) */}
+      <div
+        className="hidden md:block md:w-[60%] md:flex-shrink-0"
+        style={{ position: 'relative', overflow: 'hidden' }}
+      >
+        <img
+          src="/bg-login.png"
+          alt="BomberEci Arena"
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'block',
+            objectFit: 'cover',
+            objectPosition: 'center center'
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'linear-gradient(to right, transparent 70%, #0a1016 100%)'
+          }}
+        />
+      </div>
+
+      {/* Columna derecha (40% desktop / 100% móvil): formulario centrado horizontal y verticalmente */}
+      <div
+        className="w-full md:w-[40%] md:flex-shrink-0"
         style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          objectPosition: 'center center'
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflowY: 'auto',
+          padding: '40px 24px',
+          background: '#0a1016'
         }}
-      />
-
-      {/* Fondo oscuro para legibilidad cuando el panel queda centrado en móvil */}
-      <div className="block md:hidden" style={{ position: 'absolute', inset: 0, background: 'rgba(10,16,22,0.82)' }} />
-
-      {/* Contenido en la misma ubicación del Login */}
+      >
       <motion.div
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        className="relative z-10 w-full max-w-[440px] mx-auto max-h-[90vh] overflow-y-auto md:absolute md:right-[6%] md:top-1/4 md:-translate-y-1/2 md:w-[min(440px,36vw)] md:mx-0"
+        className="w-full max-w-[360px]"
       >
         {/* Título */}
-        <div style={{ marginBottom: '32px' }}>
+        <div style={{ marginBottom: '22px' }}>
           <div
             style={{
-              width: '58px',
-              height: '4px',
+              width: '46px',
+              height: '3px',
               background: '#FF4655',
-              marginBottom: '18px'
+              marginBottom: '12px'
             }}
           />
 
           <h1
             style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: 'clamp(2.6rem, 9vw, 4rem)',
+              fontSize: 'clamp(2rem, 6vw, 2.9rem)',
               color: 'white',
               letterSpacing: '0.08em',
               lineHeight: 1,
@@ -99,10 +111,10 @@ export default function Recuperar() {
           <h2
             style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: 'clamp(1.4rem, 5vw, 2rem)',
+              fontSize: 'clamp(1.1rem, 3.5vw, 1.45rem)',
               color: '#FF4655',
               letterSpacing: '0.08em',
-              margin: '4px 0 0'
+              margin: '2px 0 0'
             }}
           >
             CONTRASEÑA
@@ -110,10 +122,10 @@ export default function Recuperar() {
 
           <p
             style={{
-              fontSize: '0.88rem',
+              fontSize: '0.8rem',
               color: '#c2c8ce',
-              lineHeight: 1.6,
-              marginTop: '14px'
+              lineHeight: 1.55,
+              marginTop: '10px'
             }}
           >
             Ingresa tu correo y te enviaremos un enlace para recuperar tu contraseña.
@@ -124,7 +136,7 @@ export default function Recuperar() {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '22px'
+            gap: '16px'
           }}
         >
           {mensaje && (
@@ -132,8 +144,8 @@ export default function Recuperar() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               style={{
-                fontSize: '0.9rem',
-                padding: '12px 16px',
+                fontSize: '0.82rem',
+                padding: '9px 13px',
                 borderLeft: `3px solid ${
                   mensaje.tipo === 'exito' ? '#22c55e' : '#FF4655'
                 }`,
@@ -157,7 +169,7 @@ export default function Recuperar() {
           >
             <label
               style={{
-                fontSize: '0.78rem',
+                fontSize: '0.7rem',
                 color: '#c2c8ce',
                 textTransform: 'uppercase',
                 letterSpacing: '0.15em'
@@ -174,8 +186,8 @@ export default function Recuperar() {
               placeholder="tucorreo@gmail.com"
               className="input-val"
               style={{
-                fontSize: '1.1rem',
-                padding: '18px 8px'
+                fontSize: '0.95rem',
+                padding: '13px 8px'
               }}
             />
           </div>
@@ -188,8 +200,8 @@ export default function Recuperar() {
             className="btn-val"
             style={{
               width: '100%',
-              fontSize: '1.15rem',
-              padding: '18px'
+              fontSize: '1rem',
+              padding: '13px'
             }}
           >
             {cargando ? 'ENVIANDO...' : 'ENVIAR ENLACE'}
@@ -200,7 +212,7 @@ export default function Recuperar() {
             style={{
               color: '#c2c8ce',
               textDecoration: 'none',
-              fontSize: '0.78rem',
+              fontSize: '0.7rem',
               textTransform: 'uppercase',
               letterSpacing: '0.1em'
             }}
@@ -213,12 +225,13 @@ export default function Recuperar() {
 
         <div
           style={{
-            marginTop: '32px',
+            marginTop: '22px',
             height: '1px',
             background: 'linear-gradient(to right, #FF4655, transparent)'
           }}
         />
       </motion.div>
+      </div>
     </div>
   );
 }
