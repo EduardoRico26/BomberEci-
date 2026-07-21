@@ -9,7 +9,6 @@ const LobbyManager = require('./lobby/LobbyManager');
 const GameRoom     = require('./game/GameRoom');
 const cookieParser = require('cookie-parser');
 const authRoutes   = require('./auth/authRoutes');
-const jwt          = require('jsonwebtoken');
 require('dotenv').config();
 const metrics = require('./metrics');
 
@@ -164,53 +163,6 @@ async function salirDeSalaActual(socket, salaId) {
   }
 }
 
-// Identifica la CUENTA detrás del socket (usuarioId, del JWT de la cookie de
-// sesión) para poder detectar que la misma cuenta se unió dos veces a la
-// misma sala desde pestañas distintas (antes solo se comparaba por
-// socket.id, que siempre es único por pestaña, así que nunca coincidía).
-//
-// A propósito NUNCA rechaza la conexión (siempre llama next() sin error):
-// esto es una mejora de detección de duplicados, no un gate de acceso — el
-// login real ya lo protegen las rutas de React (RutaProtegida) y las rutas
-// HTTP de /auth. Si por lo que sea la cookie no llega o el JWT no se puede
-// verificar, el socket igual se conecta y juega con normalidad, solo que sin
-// la protección anti-doble-pestaña (mejor eso que dejar al jugador sin poder
-// jugar en absoluto).
-function extraerTokenDeCookie(cabeceraCookie) {
-  if (!cabeceraCookie) return null;
-  for (const parte of cabeceraCookie.split(';')) {
-    const igual = parte.indexOf('=');
-    if (igual === -1) continue;
-    const clave = parte.slice(0, igual).trim();
-    if (clave === 'token') return decodeURIComponent(parte.slice(igual + 1).trim());
-  }
-  return null;
-}
-
-io.use((socket, next) => {
-  const cabeceraCookie = socket.handshake.headers.cookie;
-  const token = extraerTokenDeCookie(cabeceraCookie);
-  if (!token) {
-    // Loguea qué cookies SÍ llegaron (solo nombres, nunca valores) para
-    // distinguir "no llegó ninguna cookie" (problema de origen/proxy) de
-    // "llegaron cookies pero no había 'token'" (sesión no iniciada / cookie
-    // con otro nombre).
-    const nombresCookies = cabeceraCookie
-      ? cabeceraCookie.split(';').map(c => c.split('=')[0].trim())
-      : [];
-    logger.warn({ event: 'socket_sin_cookie_sesion', socketId: socket.id, cookiesRecibidas: nombresCookies });
-    return next();
-  }
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    socket.usuarioId = decoded.id;
-    logger.info({ event: 'socket_usuario_identificado', socketId: socket.id, usuarioId: socket.usuarioId });
-  } catch (err) {
-    logger.warn({ event: 'socket_token_invalido', socketId: socket.id, error: err.message });
-  }
-  next();
-});
-
 io.on('connection', (socket) => {
   metrics.jugadoresConectados.inc();
   logger.info({ event: 'player_connected', socketId: socket.id });
@@ -252,7 +204,7 @@ io.on('connection', (socket) => {
       metrics.salaCreada.inc();
       metrics.salasActivas.set(rooms.size);
 
-      const resultadoUnion = await lobby.unirseASala(salaId, { id: socket.id, usuarioId: socket.usuarioId, nombre, color });
+      const resultadoUnion = await lobby.unirseASala(salaId, { id: socket.id, nombre, color });
       await room.agregarJugador(socket.id, nombre, color);
       socket.join(salaId);
       socket.salaId = salaId;
@@ -283,11 +235,12 @@ io.on('connection', (socket) => {
         socket.emit('error_sala', 'La partida ya comenzó, espera la siguiente ronda');
         return;
       }
-      // El guard "socket.usuarioId &&" es obligatorio: si no se pudo leer la
-      // cookie de sesión (ver io.use más arriba), socket.usuarioId queda
-      // undefined, y sin este guard "undefined === undefined" bloquearía a
-      // CUALQUIER segundo jugador real (no solo a la misma cuenta).
-      if (socket.usuarioId && sala.jugadores.some(j => j.usuarioId === socket.usuarioId)) {
+      // "nombre" viene de usuario.nombre (el perfil de la cuenta logueada),
+      // no es un campo que el jugador escriba cada vez que entra a una sala,
+      // así que dos pestañas de la misma cuenta siempre mandan el mismo
+      // nombre: alcanza con comparar por nombre dentro de ESTA sala para
+      // bloquear la doble entrada, sin necesitar leer el JWT del socket.
+      if (sala.jugadores.some(j => LobbyManager.normalizarNombre(j.nombre) === LobbyManager.normalizarNombre(nombre))) {
         socket.emit('error_sala', 'Ya estás en esta sala desde otra pestaña o dispositivo.');
         return;
       }
@@ -299,7 +252,7 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const resultado = await lobby.unirseASala(salaId, { id: socket.id, usuarioId: socket.usuarioId, nombre, color });
+      const resultado = await lobby.unirseASala(salaId, { id: socket.id, nombre, color });
       if (resultado.error) {
         socket.emit('error_sala', resultado.error);
         return;

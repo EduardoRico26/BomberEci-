@@ -58,6 +58,13 @@ const SALA_PREFIX = 'sala:';
 // GameRoom.js) para que ambos publiquen al mismo canal sin duplicar el string.
 const CANAL_SALAS = 'salas:actualizar';
 
+// Para comparar nombres de forma consistente (misma cuenta = mismo nombre,
+// pero sin que un espacio de más o una mayúscula distinta cuenten como
+// jugadores "distintos").
+function normalizarNombre(nombre) {
+  return (nombre || '').trim().toLowerCase();
+}
+
 // `listo` (client.connect()) no se rechaza sola si Redis nunca responde: el
 // reconnectStrategy por defecto reintenta indefinidamente incluso en el
 // primer intento. Sin este límite, cualquier método de abajo se quedaría
@@ -127,11 +134,11 @@ class LobbyManager {
     try {
       const sala = await this.getSala(salaId);
       if (!sala) return { error: 'Sala no encontrada.' };
-      // Misma cuenta ya sentada en esta sala (otra pestaña/dispositivo): se
-      // compara por usuarioId (viene del JWT, no del socket.id que siempre
-      // es distinto por conexión) para no dejar entrar dos veces a la misma
-      // cuenta a la misma sala.
-      if (jugador.usuarioId && sala.jugadores.some(j => j.usuarioId === jugador.usuarioId)) {
+      // Misma cuenta ya sentada en esta sala (otra pestaña/dispositivo): el
+      // nombre viene del perfil de la cuenta logueada (usuario.nombre), no
+      // es un campo libre que el jugador escriba cada vez, así que dos
+      // pestañas de la misma cuenta siempre mandan el mismo nombre.
+      if (sala.jugadores.some(j => normalizarNombre(j.nombre) === normalizarNombre(jugador.nombre))) {
         return { error: 'Ya estás en esta sala desde otra pestaña o dispositivo.' };
       }
       if (sala.jugadores.length >= MAX_JUGADORES) return { error: 'Sala llena.' };
@@ -267,4 +274,5 @@ LobbyManager.MAX_JUGADORES = MAX_JUGADORES;
 LobbyManager.redisClient = client;
 LobbyManager.esperarListo = esperarListo;
 LobbyManager.CANAL_SALAS = CANAL_SALAS;
+LobbyManager.normalizarNombre = normalizarNombre;
 module.exports = LobbyManager;
