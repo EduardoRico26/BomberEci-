@@ -214,7 +214,18 @@ class GameRoom {
         this.io.to(this.salaId).emit('estado_juego', estadoTrasExplosion);
 
         if (resultado.eliminados.length > 0) {
-          await this.verificarYFinalizarSiHayGanador(estadoTrasExplosion);
+          const ganador = verificarGanador(estadoTrasExplosion);
+          if (ganador) {
+            const nombre = ganador === 'empate' ? 'empate' : ganador.nombre;
+            metrics.partidasCompletadas.inc();
+            this.logger.info({ event: 'partida_terminada', salaId: this.salaId, ganador: nombre });
+            this.io.to(this.salaId).emit('fin_partida', { ganador: nombre });
+
+            // Libera la sala para que vuelva a listarse en el lobby (si
+            // quedan jugadores) sin esperar a que alguien pida 'pedir_salas'.
+            await lobby.desmarcarEnPartida(this.salaId);
+            await redisClient.publish(LobbyManager.CANAL_SALAS, '1');
+          }
         }
       } catch (err) {
         this.logger.error({ event: 'explosion_error', salaId: this.salaId, error: err.message });
@@ -224,25 +235,6 @@ class GameRoom {
     }, bombaColocada.timer);
 
     this.timers.set(bombaColocada.id, timer);
-  }
-
-  // Compartido entre la explosión de una bomba y la salida/desconexión de un
-  // jugador durante una partida activa: en ambos casos puede quedar un solo
-  // sobreviviente, y en ambos hay que avisarle al cliente y liberar la sala.
-  async verificarYFinalizarSiHayGanador(estado) {
-    const ganador = verificarGanador(estado);
-    if (!ganador) return false;
-
-    const nombre = ganador === 'empate' ? 'empate' : ganador.nombre;
-    metrics.partidasCompletadas.inc();
-    this.logger.info({ event: 'partida_terminada', salaId: this.salaId, ganador: nombre });
-    this.io.to(this.salaId).emit('fin_partida', { ganador: nombre });
-
-    // Libera la sala para que vuelva a listarse en el lobby (si quedan
-    // jugadores) sin esperar a que alguien pida 'pedir_salas'.
-    await lobby.desmarcarEnPartida(this.salaId);
-    await redisClient.publish(LobbyManager.CANAL_SALAS, '1');
-    return true;
   }
 
   async eliminarJugador(socketId) {

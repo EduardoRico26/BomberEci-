@@ -6,21 +6,11 @@ const { verificarToken } = require('./authMiddleware');
 const metrics = require('../metrics');
 const logger = require('../logger');
 
-// express-rate-limit v8 exige pasar cualquier IP por su helper ipKeyGenerator
-// (normaliza IPv6 a un bloque /56): sin esto, alguien podría rotar entre
-// direcciones IPv6 del mismo bloque para saltarse el límite, y la librería
-// directamente lanza un error al armar el limiter si detecta "req.ip" sin
-// ese helper (revienta el arranque del servidor, no es solo un warning).
-function ipReal(req) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip;
-  return rateLimit.ipKeyGenerator(ip);
-}
-
 // Rate limiting para login — máximo 5 intentos por 3 minutos por IP real
 const loginLimiter = rateLimit({
   windowMs: 3 * 60 * 1000,
   max: 5,
-  keyGenerator: ipReal,
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip,
   message: { mensaje: 'Demasiados intentos. Espera 3 minutos.' },
   standardHeaders: true,
   legacyHeaders: false
@@ -30,7 +20,7 @@ const loginLimiter = rateLimit({
 const registroLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
-  keyGenerator: ipReal,
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip,
   message: { mensaje: 'Demasiados registros desde esta IP.' }
 });
 

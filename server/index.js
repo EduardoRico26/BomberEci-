@@ -154,15 +154,6 @@ async function salirDeSalaActual(socket, salaId) {
       logger.info({ event: 'sala_vacia_eliminada', salaId });
     } else {
       io.to(salaId).emit('jugadores_sala', salaRestante.jugadores);
-
-      // Si la partida ya estaba en curso y con esta salida queda un solo
-      // jugador en pie, se le da la victoria automáticamente en vez de
-      // dejarlo esperando una explosión que nunca va a llegar de un rival
-      // que ya no está.
-      if (salaRestante.enPartida && room) {
-        const estadoJuego = await room.getEstado();
-        if (estadoJuego) await room.verificarYFinalizarSiHayGanador(estadoJuego);
-      }
     }
 
     metrics.salasActivas.set(rooms.size);
@@ -242,15 +233,6 @@ io.on('connection', (socket) => {
       if (!sala) { socket.emit('error_sala', 'Sala no encontrada'); return; }
       if (sala.enPartida) {
         socket.emit('error_sala', 'La partida ya comenzó, espera la siguiente ronda');
-        return;
-      }
-      // "nombre" viene de usuario.nombre (el perfil de la cuenta logueada),
-      // no es un campo que el jugador escriba cada vez que entra a una sala,
-      // así que dos pestañas de la misma cuenta siempre mandan el mismo
-      // nombre: alcanza con comparar por nombre dentro de ESTA sala para
-      // bloquear la doble entrada, sin necesitar leer el JWT del socket.
-      if (sala.jugadores.some(j => LobbyManager.normalizarNombre(j.nombre) === LobbyManager.normalizarNombre(nombre))) {
-        socket.emit('error_sala', 'Ya estás en esta sala desde otra pestaña o dispositivo.');
         return;
       }
       if (sala.jugadores.length >= LobbyManager.MAX_JUGADORES) {
