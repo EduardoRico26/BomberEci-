@@ -56,6 +56,19 @@ export default function Lobby() {
       setErrorNombre(msg);
       setMensajeEspera(msg);
     });
+    // El anfitrión se fue antes de iniciar partida: el servidor ya cerró y
+    // borró la sala entera, así que a quien quede esperando no le sirve de
+    // nada seguir ahí — se lo regresa al menú principal.
+    socket.on('sala_cerrada', () => {
+      setEstadoInicial(null);
+      setSalaId('');
+      setEsDueno(false);
+      setColorSeleccionado('');
+      setJugadoresSala([]);
+      setNombreSala('');
+      setMensajeEspera('');
+      setVista('menu');
+    });
     const intervalo = setInterval(() => socket.emit('pedir_salas'), 2000);
     return () => {
       clearInterval(intervalo);
@@ -65,6 +78,7 @@ export default function Lobby() {
       socket.off('jugadores_sala');
       socket.off('iniciar_partida');
       socket.off('error_sala');
+      socket.off('sala_cerrada');
       socket.disconnect();
     };
   }, []);
@@ -138,6 +152,7 @@ export default function Lobby() {
     setEsDueno(false);
     setColorSeleccionado('');
     setJugadoresSala([]);
+    setNombreSala('');
     setMensajeEspera('');
     setVista('menu');
   }
@@ -482,7 +497,7 @@ export default function Lobby() {
                 </div>
               )}
 
-              <button onClick={() => { setNombreSala(''); setEsDueno(false); setJugadoresSala([]); setVista('menu'); }}
+              <button onClick={salirDeSala}
                 className="btn-val-outline" style={{ fontSize: '0.76rem' }}>
                 CANCELAR
               </button>

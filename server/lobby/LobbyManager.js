@@ -181,6 +181,21 @@ class LobbyManager {
     }
   }
 
+  // Borra la sala completa sin importar cuántos jugadores queden dentro: se
+  // usa cuando el anfitrión se va antes de iniciar partida, ya que en ese
+  // caso la sala entera debe desaparecer (no solo sacar a un jugador), y los
+  // demás deben volver al menú en vez de quedar esperando a un anfitrión que
+  // ya no está.
+  async eliminarSalaCompleta(salaId) {
+    await esperarListo();
+    try {
+      await client.del(`${SALA_PREFIX}${salaId}`);
+      logger.info({ event: 'redis_sala_cerrada_por_anfitrion', salaId });
+    } catch (err) {
+      logger.error({ event: 'redis_eliminar_sala_completa_error', salaId, error: err.message });
+    }
+  }
+
   // Salvavidas para sockets que nunca disparan 'disconnect' en ninguna
   // instancia (crash del proceso, kill -9 de PM2, caída de red que el
   // heartbeat de Socket.io tarda en detectar): sin esto esas salas

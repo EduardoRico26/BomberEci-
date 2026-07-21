@@ -133,12 +133,48 @@ app.get('/metrics', async (req, res) => {
   }
 });
 
+// Si el anfitrión (jugadores[0], el mismo que la UI marca como "Anfitrión" y
+// el único habilitado para iniciar partida) se va ANTES de iniciar, la sala
+// entera se cierra: no tendría sentido dejar a los demás esperando a un
+// anfitrión que ya no está y que era el único que podía arrancar la partida.
+// Se avisa por 'sala_cerrada' a todos los que sigan adentro para que el
+// cliente los regrese al menú, y se hace .leave() en cada socket (incluso
+// los conectados a otra instancia EC2, vía fetchSockets) para que ninguno
+// quede sentado en una sala que ya no existe en Redis.
+async function cerrarSalaPorAnfitrion(salaId) {
+  io.to(salaId).emit('sala_cerrada', { motivo: 'El anfitrión salió de la sala.' });
+
+  const socketsEnSala = await io.in(salaId).fetchSockets();
+  for (const s of socketsEnSala) {
+    s.leave(salaId);
+  }
+
+  const room = rooms.get(salaId);
+  if (room) {
+    room.destruirLocal();
+    rooms.delete(salaId);
+  }
+  await GameRoom.eliminarEstado(salaId);
+  await lobby.eliminarSalaCompleta(salaId);
+  logger.info({ event: 'sala_cerrada_por_anfitrion', salaId });
+}
+
 // Compartida entre 'disconnect' (el jugador cierra/pierde conexión) y
 // 'salir_sala' (el jugador pulsa "Salir" estando conectado): en ambos casos
 // hay que sacarlo del roster del lobby, del GameRoom y avisar al resto,
 // para no duplicar esa lógica en dos handlers.
 async function salirDeSalaActual(socket, salaId) {
   try {
+    const salaAntes = await lobby.getSala(salaId);
+    const esAnfitrion = salaAntes?.jugadores[0]?.id === socket.id;
+
+    if (esAnfitrion && !salaAntes.enPartida) {
+      await cerrarSalaPorAnfitrion(salaId);
+      metrics.salasActivas.set(rooms.size);
+      await difundirListaSalas();
+      return;
+    }
+
     await lobby.eliminarJugador(socket.id);
     const room = rooms.get(salaId);
     if (room) {
