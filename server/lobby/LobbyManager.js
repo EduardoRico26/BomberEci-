@@ -127,6 +127,13 @@ class LobbyManager {
     try {
       const sala = await this.getSala(salaId);
       if (!sala) return { error: 'Sala no encontrada.' };
+      // Misma cuenta ya sentada en esta sala (otra pestaña/dispositivo): se
+      // compara por usuarioId (viene del JWT, no del socket.id que siempre
+      // es distinto por conexión) para no dejar entrar dos veces a la misma
+      // cuenta a la misma sala.
+      if (jugador.usuarioId && sala.jugadores.some(j => j.usuarioId === jugador.usuarioId)) {
+        return { error: 'Ya estás en esta sala desde otra pestaña o dispositivo.' };
+      }
       if (sala.jugadores.length >= MAX_JUGADORES) return { error: 'Sala llena.' };
       if (sala.jugadores.some(j => j.color === jugador.color)) {
         return { error: 'Ese color ya está tomado en esta sala.' };

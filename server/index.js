@@ -9,6 +9,7 @@ const LobbyManager = require('./lobby/LobbyManager');
 const GameRoom     = require('./game/GameRoom');
 const cookieParser = require('cookie-parser');
 const authRoutes   = require('./auth/authRoutes');
+const jwt          = require('jsonwebtoken');
 require('dotenv').config();
 const metrics = require('./metrics');
 
@@ -163,6 +164,36 @@ async function salirDeSalaActual(socket, salaId) {
   }
 }
 
+// Sin esto, cualquiera podía abrir el socket.io directo (sin pasar por el
+// login) y jugar con un "nombre" de texto libre; además era la única forma
+// de tener un identificador de CUENTA estable (usuarioId) para detectar que
+// la misma cuenta se unió dos veces a la misma sala desde pestañas distintas
+// (antes solo se comparaba por socket.id, que siempre es único por pestaña).
+function extraerTokenDeCookie(cabeceraCookie) {
+  if (!cabeceraCookie) return null;
+  for (const parte of cabeceraCookie.split(';')) {
+    const igual = parte.indexOf('=');
+    if (igual === -1) continue;
+    const clave = parte.slice(0, igual).trim();
+    if (clave === 'token') return decodeURIComponent(parte.slice(igual + 1).trim());
+  }
+  return null;
+}
+
+io.use((socket, next) => {
+  const token = extraerTokenDeCookie(socket.handshake.headers.cookie);
+  if (!token) {
+    return next(new Error('No autenticado'));
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.usuarioId = decoded.id;
+    next();
+  } catch (err) {
+    next(new Error('Token inválido o expirado'));
+  }
+});
+
 io.on('connection', (socket) => {
   metrics.jugadoresConectados.inc();
   logger.info({ event: 'player_connected', socketId: socket.id });
@@ -204,7 +235,7 @@ io.on('connection', (socket) => {
       metrics.salaCreada.inc();
       metrics.salasActivas.set(rooms.size);
 
-      const resultadoUnion = await lobby.unirseASala(salaId, { id: socket.id, nombre, color });
+      const resultadoUnion = await lobby.unirseASala(salaId, { id: socket.id, usuarioId: socket.usuarioId, nombre, color });
       await room.agregarJugador(socket.id, nombre, color);
       socket.join(salaId);
       socket.salaId = salaId;
@@ -235,6 +266,10 @@ io.on('connection', (socket) => {
         socket.emit('error_sala', 'La partida ya comenzó, espera la siguiente ronda');
         return;
       }
+      if (sala.jugadores.some(j => j.usuarioId === socket.usuarioId)) {
+        socket.emit('error_sala', 'Ya estás en esta sala desde otra pestaña o dispositivo.');
+        return;
+      }
       if (sala.jugadores.length >= LobbyManager.MAX_JUGADORES) {
         socket.emit('error_sala', 'Sala llena'); return;
       }
@@ -243,7 +278,7 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const resultado = await lobby.unirseASala(salaId, { id: socket.id, nombre, color });
+      const resultado = await lobby.unirseASala(salaId, { id: socket.id, usuarioId: socket.usuarioId, nombre, color });
       if (resultado.error) {
         socket.emit('error_sala', resultado.error);
         return;
