@@ -322,6 +322,19 @@ io.on('connection', (socket) => {
     }
   });
 
+  // El cliente solo avisa "pisé esto"; la identidad (sala/jugador) sale del
+  // propio socket, nunca del payload, para no confiar en un salaId/socketId
+  // que el cliente podría falsificar.
+  socket.on('recoger_powerup', async ({ powerupId }) => {
+    const room = rooms.get(socket.salaId);
+    if (!room) return;
+    try {
+      await room.recogerPowerup(socket.id, powerupId);
+    } catch (err) {
+      logger.error({ event: 'recoger_powerup_error', salaId: socket.salaId, socketId: socket.id, error: err.message });
+    }
+  });
+
   // ── SALIR DE LA SALA (botón del jugador, sin desconectar el socket) ──
   socket.on('salir_sala', async () => {
     if (!socket.salaId) return;

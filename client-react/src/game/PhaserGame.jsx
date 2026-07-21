@@ -9,15 +9,16 @@ const TILE = 56;
 // 4 = izquierda; paso 1/2 son los dos frames del ciclo de caminar.
 const FILA_DIRECCION = { abajo: 1, arriba: 2, derecha: 3, izquierda: 4 };
 
-// Espacio reservado alrededor del tablero (header, footer, panel lateral y
-// márgenes de respiro) para calcular cuánto se puede escalar el tablero sin
+// Espacio reservado alrededor del tablero (header, footer, paneles laterales
+// y márgenes de respiro) para calcular cuánto se puede escalar el tablero sin
 // que se salga de la pantalla. Son estimaciones deliberadamente generosas:
 // mejor un tablero un poco más chico que uno recortado.
-const RESERVA_HEADER = 64;
-const RESERVA_FOOTER = 56;
-const RESERVA_PANEL  = 170;
-const MARGEN         = 18;
-const ESCALA_MINIMA  = 0.45;
+const RESERVA_HEADER          = 64;
+const RESERVA_FOOTER          = 56;
+const RESERVA_PANEL_IZQUIERDO = 190; // tarjetas de jugadores
+const RESERVA_PANEL_DERECHO   = 170; // botón "abandonar"
+const MARGEN                  = 18;
+const ESCALA_MINIMA           = 0.4;
 
 // El tablero de Phaser se renderiza siempre a su resolución nativa (ANCHO x
 // ALTO en píxeles reales); esta función solo calcula cuánto hay que
@@ -25,10 +26,78 @@ const ESCALA_MINIMA  = 0.45;
 // pantalla actual, sin importar el tamaño de monitor o ventana.
 function calcularEscala(ancho, alto) {
   if (typeof window === 'undefined') return 1;
-  const anchoDisponible = window.innerWidth  - RESERVA_PANEL - MARGEN * 2;
+  const anchoDisponible = window.innerWidth
+    - RESERVA_PANEL_IZQUIERDO - RESERVA_PANEL_DERECHO - MARGEN * 2;
   const altoDisponible  = window.innerHeight - RESERVA_HEADER - RESERVA_FOOTER - MARGEN;
   const factor = Math.min(anchoDisponible / ancho, altoDisponible / alto, 1);
   return Math.max(factor, ESCALA_MINIMA);
+}
+
+function segundosRestantes(expiraEn, ahora) {
+  if (!expiraEn) return 0;
+  return Math.max(0, Math.ceil((expiraEn - ahora) / 1000));
+}
+
+// Tarjeta de jugador del panel lateral izquierdo: vidas + los 3 poderes con
+// duración, cada uno con su contador en segundos (parpadea en rojo mientras
+// está activo). Vive fuera del canvas de Phaser porque es DOM normal — el
+// juego no necesita re-renderizarse para que este contador baje.
+function TarjetaJugador({ jugador, esMio, ahora }) {
+  const poderes = [
+    { icono: '/game/fx/doublebomb.png', alt: 'Doble bomba', activo: jugador.doublebomb, segundos: segundosRestantes(jugador.doublebombExpira, ahora) },
+    { icono: '/game/fx/flash.png',      alt: 'Velocidad',   activo: jugador.flash,      segundos: segundosRestantes(jugador.flashExpira, ahora) },
+    { icono: '/game/fx/shield.png',     alt: 'Escudo',      activo: jugador.shield,     segundos: segundosRestantes(jugador.shieldExpira, ahora) }
+  ];
+
+  return (
+    <div style={{
+      background: 'rgba(10,16,22,0.9)',
+      border: `1px solid ${esMio ? '#FF4655' : 'rgba(255,70,85,0.3)'}`,
+      clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
+      padding: '10px 12px',
+      display: 'flex', flexDirection: 'column', gap: '7px',
+      width: '156px',
+      opacity: jugador.vivo ? 1 : 0.4,
+      transition: 'opacity 0.3s'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <img src={`/sprites/jugador-${jugador.color}.png`} alt=""
+          style={{ width: '40px', height: '40px', imageRendering: 'pixelated', flexShrink: 0 }}
+        />
+        <span style={{
+          fontFamily: "'Bebas Neue', cursive", color: 'white',
+          fontSize: '0.85rem', letterSpacing: '0.03em', lineHeight: 1.1,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+        }}>
+          {jugador.nombre}
+        </span>
+      </div>
+
+      {/* Fila 1: vidas */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+        <span style={{ color: '#FF4655', fontSize: '0.95rem', lineHeight: 1 }}>♥</span>
+        <span style={{ fontFamily: "'Bebas Neue', cursive", color: 'white', fontSize: '0.8rem', letterSpacing: '0.04em' }}>
+          {jugador.vidas}
+        </span>
+      </div>
+
+      {/* Filas 2-4: doble bomba, velocidad, escudo */}
+      {poderes.map((p) => (
+        <div key={p.alt} style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+          <img src={p.icono} alt={p.alt} style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
+          <span
+            className={p.activo ? 'pulsar' : undefined}
+            style={{
+              fontFamily: "'Bebas Neue', cursive", fontSize: '0.8rem', letterSpacing: '0.04em',
+              color: p.activo ? '#FF4655' : '#768079'
+            }}
+          >
+            {p.activo ? `${p.segundos}s` : '0'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, onVolverSala, onSalirSala }) {
@@ -52,6 +121,21 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
     window.addEventListener('resize', alRedimensionar);
     return () => window.removeEventListener('resize', alRedimensionar);
   }, [ANCHO, ALTO]);
+
+  // Estado "espejo" solo para el panel lateral de tarjetas (DOM normal, no
+  // Phaser): se actualiza con cada 'estado_juego' que ya llega por el socket.
+  // Los timers de Phaser dentro de la escena siguen leyendo de estadoRef
+  // directamente, sin pasar por React, para no perder rendimiento del juego.
+  const [jugadoresEstado, setJugadoresEstado] = useState(estadoInicial.jugadores);
+
+  // Los contadores de poderes ("14s", "13s"...) deben bajar solos aunque no
+  // llegue estado nuevo del servidor; este reloj fuerza un re-render por
+  // segundo solo para recalcular esos textos.
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!estadoInicial || juegoRef.current) return;
@@ -85,6 +169,10 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
         this.load.image('explosion_center_1', '/game/fx/explosion_center_1.png');
         this.load.image('explosion_arm_0', '/game/fx/explosion_arm_0.png');
         this.load.image('explosion_arm_1', '/game/fx/explosion_arm_1.png');
+        this.load.image('powerup_doublebomb', '/game/fx/doublebomb.png');
+        this.load.image('powerup_flash',      '/game/fx/flash.png');
+        this.load.image('powerup_shield',     '/game/fx/shield.png');
+        this.load.image('powerup_extra',      '/game/fx/extra.png');
         COLORES_JUGADOR.forEach(c => {
           Object.entries(FILA_DIRECCION).forEach(([dir, fila]) => {
             [1, 2].forEach(paso => {
@@ -104,6 +192,8 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
         this.textos     = {};
         this.ultimoMov  = 0;
         this.bombaSprites = {};
+        this.powerupSprites  = {};
+        this.powerupsReportados = new Set();
         this.jugadorSprites   = {};
         this.direccionJugador = {};
         this.ultimaPosJugador = {};
@@ -112,6 +202,7 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
         this.construirMapa(estadoRef.current.mapa);
         this.gJugadores = this.add.graphics();
         this.actualizarBombas(estadoRef.current.bombas);
+        this.actualizarPowerups(estadoRef.current.powerups || []);
         this.dibujarJugadores(estadoRef.current);
 
         this.cursores = this.input.keyboard.createCursorKeys();
@@ -126,8 +217,14 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
 
         this.animarBombas(time);
         this.dibujarJugadores(estadoRef.current);
+        this.revisarRecogerPowerup();
 
-        if (time - this.ultimoMov < 130) return;
+        // El cooldown lo decide el servidor (fuente de verdad); acá solo se
+        // evita spamear 'mover' más rápido de lo que el propio jugador puede
+        // moverse, leyendo su velocidad actual (más baja con flash activo).
+        const miJugador = estadoRef.current.jugadores.find(j => j.id === this.miId);
+        const cooldownMovimiento = miJugador?.velocidad || 180;
+        if (time - this.ultimoMov < cooldownMovimiento) return;
 
         const arriba = this.cursores.up.isDown    || this.wasd.W.isDown;
         const abajo  = this.cursores.down.isDown  || this.wasd.S.isDown;
@@ -142,6 +239,48 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
         if (Phaser.Input.Keyboard.JustDown(this.espacio)) {
           socket.emit('bomba');
         }
+      }
+
+      claveTexturaPowerup(tipo) {
+        return `powerup_${tipo}`;
+      }
+
+      // Igual que actualizarBombas: solo agrega/quita sprites de los
+      // power-ups que aparecieron/desaparecieron desde el último estado.
+      actualizarPowerups(powerups) {
+        if (!this.powerupSprites) return;
+        const vistos = new Set();
+        powerups.forEach(p => {
+          vistos.add(p.id);
+          if (!this.powerupSprites[p.id]) {
+            const img = this.add.image(p.x * TILE + TILE / 2, p.y * TILE + TILE / 2, this.claveTexturaPowerup(p.tipo));
+            img.setDisplaySize(TILE * 0.62, TILE * 0.62);
+            this.powerupSprites[p.id] = img;
+          }
+        });
+        Object.keys(this.powerupSprites).forEach(id => {
+          if (!vistos.has(id)) {
+            this.powerupSprites[id].destroy();
+            delete this.powerupSprites[id];
+          }
+        });
+      }
+
+      // Detección de colisión jugador-powerup del lado del cliente: si mi
+      // jugador está parado sobre la celda de un power-up, se le avisa al
+      // servidor (que valida y aplica de verdad). El Set evita reportar el
+      // mismo power-up en cada frame mientras se espera la respuesta.
+      revisarRecogerPowerup() {
+        const miJugador = estadoRef.current.jugadores.find(j => j.id === this.miId && j.vivo);
+        if (!miJugador) return;
+
+        const powerups = estadoRef.current.powerups || [];
+        const powerup = powerups.find(p => p.x === miJugador.x && p.y === miJugador.y);
+        if (!powerup) return;
+        if (this.powerupsReportados.has(powerup.id)) return;
+
+        this.powerupsReportados.add(powerup.id);
+        socket.emit('recoger_powerup', { salaId, socketId: this.miId, powerupId: powerup.id });
       }
 
       claveTile(celda) {
@@ -401,20 +540,30 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
     socket.on('estado_juego', (nuevoEstado) => {
       if (!activo.current) return;
       estadoRef.current = nuevoEstado;
+      setJugadoresEstado(nuevoEstado.jugadores);
       const escena = escenaRef.current;
       if (escena && escena.sys.isActive()) {
         escena.actualizarTilesMapa(nuevoEstado.mapa);
         escena.actualizarBombas(nuevoEstado.bombas);
+        escena.actualizarPowerups(nuevoEstado.powerups || []);
       }
     });
 
-    socket.on('explosion', ({ celdas, eliminados }) => {
+    socket.on('explosion', ({ celdas, eliminados, golpeados }) => {
       if (!activo.current) return;
       const escena = escenaRef.current;
       if (!escena || !escena.sys.isActive()) return;
       escena.mostrarExplosion(celdas);
+
       if (eliminados.includes(socket.id)) {
         escena.mensajeTemporal('ELIMINADO', '#FF4655');
+        return;
+      }
+      const golpe = (golpeados || []).find(g => g.id === socket.id);
+      if (golpe?.tipo === 'escudo') {
+        escena.mensajeTemporal('¡ESCUDO CONSUMIDO!', '#38bdf8');
+      } else if (golpe?.tipo === 'vida') {
+        escena.mensajeTemporal(`-1 VIDA (${golpe.vidasRestantes})`, '#facc15');
       }
     });
 
@@ -432,12 +581,34 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
       escena.mensajeTemporal('RIVAL DESCONECTADO', '#facc15');
     });
 
+    const MENSAJE_PODER = {
+      doublebomb: '¡DOBLE BOMBA!',
+      flash: '¡VELOCIDAD!',
+      shield: '¡ESCUDO ACTIVADO!',
+      extra: '¡VIDA EXTRA!'
+    };
+
+    socket.on('powerup_aplicado', ({ jugadorId, tipo }) => {
+      if (!activo.current || jugadorId !== socket.id) return;
+      const escena = escenaRef.current;
+      if (!escena || !escena.sys.isActive()) return;
+      escena.mensajeTemporal(MENSAJE_PODER[tipo] || 'PODER ACTIVADO', '#4ade80');
+    });
+
+    socket.on('powerup_expirado', ({ jugadorId }) => {
+      if (!activo.current || jugadorId !== socket.id) return;
+      // El panel lateral ya se actualiza solo con 'estado_juego'; no hace
+      // falta un mensaje en pantalla cada vez que un poder se acaba.
+    });
+
     return () => {
       activo.current = false;
       socket.off('estado_juego');
       socket.off('explosion');
       socket.off('fin_partida');
       socket.off('jugador_salio');
+      socket.off('powerup_aplicado');
+      socket.off('powerup_expirado');
       escenaRef.current = null;
       juegoRef.current?.destroy(true);
       juegoRef.current = null;
@@ -525,8 +696,16 @@ export default function PhaserGame({ estadoInicial, socket, miNombre, salaId, on
         </div>
       </div>
 
-      {/* Tablero + panel lateral */}
+      {/* Tablero + paneles laterales */}
       <div style={{ position: 'relative', zIndex: 5, display: 'flex', alignItems: 'center', gap: '18px' }}>
+
+        {/* Jugadores (izquierda) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {jugadoresEstado.map(j => (
+            <TarjetaJugador key={j.id} jugador={j} esMio={j.id === socket.id} ahora={ahora} />
+          ))}
+        </div>
+
         {/* Caja al tamaño visual final (ANCHO/ALTO ya escalados): define el
             espacio real que ocupa en la página y recorta el sobrante del
             hijo sin escalar de abajo. */}

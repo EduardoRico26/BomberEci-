@@ -1,4 +1,12 @@
-const { generarMapa, procesarMovimiento, colocarBomba, explotarBomba, verificarGanador } = require('./GameEngine');
+const {
+  generarMapa,
+  procesarMovimiento,
+  colocarBomba,
+  explotarBomba,
+  verificarGanador,
+  recogerPowerup,
+  revisarExpiracionPoderes
+} = require('./GameEngine');
 const metrics = require('../metrics');
 const LobbyManager = require('../lobby/LobbyManager');
 const { WatchError } = require('redis');
@@ -20,6 +28,31 @@ const SPAWNS = [
   { x: 1, y: 11 },
   { x: 13, y: 11 }
 ];
+
+const VELOCIDAD_BASE_MS = 180;
+const PODERES_TIMER_INTERVALO_MS = 1000;
+
+function crearJugador(socketId, nombre, color, spawn) {
+  return {
+    id: socketId,
+    nombre,
+    color,
+    x: spawn.x,
+    y: spawn.y,
+    vivo: true,
+    radio: 2,
+    maxBombas: 1,
+    vidas: 1,
+    shield: false,
+    shieldExpira: null,
+    doublebomb: false,
+    doublebombExpira: null,
+    flash: false,
+    flashExpira: null,
+    velocidad: VELOCIDAD_BASE_MS,
+    ultimoMovimiento: 0
+  };
+}
 
 class GameRoom {
   constructor(salaId, io, logger) {
@@ -97,7 +130,7 @@ class GameRoom {
   async inicializar() {
     await esperarListo();
     const key = GameRoom.redisKey(this.salaId);
-    const estadoInicial = { mapa: generarMapa(), jugadores: [], bombas: [] };
+    const estadoInicial = { mapa: generarMapa(), jugadores: [], bombas: [], powerups: [] };
 
     const creado = await redisClient.set(key, JSON.stringify(estadoInicial), {
       EX: GAMEROOM_TTL_SEGUNDOS,
@@ -114,16 +147,7 @@ class GameRoom {
     let jugadorNuevo = null;
     await this._actualizarEstado((estado) => {
       const spawn = SPAWNS[estado.jugadores.length] || SPAWNS[0];
-      jugadorNuevo = {
-        id: socketId,
-        nombre,
-        color,
-        x: spawn.x,
-        y: spawn.y,
-        vivo: true,
-        radio: 2,
-        maxBombas: 1
-      };
+      jugadorNuevo = crearJugador(socketId, nombre, color, spawn);
       estado.jugadores.push(jugadorNuevo);
     });
 
@@ -136,6 +160,16 @@ class GameRoom {
     let jugadorMovido = null;
 
     const { estado } = await this._actualizarEstado((estadoActual) => {
+      const jugador = estadoActual.jugadores.find((j) => j.id === socketId);
+      if (!jugador || !jugador.vivo) return;
+
+      // Cooldown por jugador (más corto con flash activo) en vez de uno
+      // global: se guarda en el propio estado de Redis para que valga sin
+      // importar a qué instancia EC2 esté conectado el socket.
+      const velocidad = jugador.velocidad || VELOCIDAD_BASE_MS;
+      if (inicio - (jugador.ultimoMovimiento || 0) < velocidad) return;
+      jugador.ultimoMovimiento = inicio;
+
       jugadorMovido = procesarMovimiento(estadoActual, socketId, direccion);
     });
 
@@ -172,7 +206,11 @@ class GameRoom {
           this.logger.info({ event: 'bomba_explotada', salaId: this.salaId, eliminados: resultado.eliminados });
         }
 
-        this.io.to(this.salaId).emit('explosion', { celdas: resultado.celdas, eliminados: resultado.eliminados });
+        this.io.to(this.salaId).emit('explosion', {
+          celdas: resultado.celdas,
+          eliminados: resultado.eliminados,
+          golpeados: resultado.golpeados
+        });
         this.io.to(this.salaId).emit('estado_juego', estadoTrasExplosion);
 
         if (resultado.eliminados.length > 0) {
@@ -218,23 +256,16 @@ class GameRoom {
     const estado = {
       mapa: generarMapa(),
       bombas: [],
+      powerups: [],
       jugadores: jugadoresSala.map((j, i) => {
         const spawn = SPAWNS[i] || SPAWNS[0];
-        return {
-          id: j.id,
-          nombre: j.nombre,
-          color: j.color,
-          x: spawn.x,
-          y: spawn.y,
-          vivo: true,
-          radio: 2,
-          maxBombas: 1
-        };
+        return crearJugador(j.id, j.nombre, j.color, spawn);
       })
     };
 
     await this._guardarEstado(estado);
     this.logger.info({ event: 'partida_reiniciada', salaId: this.salaId, jugadores: estado.jugadores.length });
+    this.iniciarTimerPoderes();
     return estado;
   }
 
@@ -242,9 +273,63 @@ class GameRoom {
     return await this._leerEstado();
   }
 
+  // Recogida de power-up reportada por el cliente: se valida contra la
+  // posición real del jugador en el estado autoritativo (no se confía en el
+  // powerupId/posición que mande el socket) dentro de GameEngine.recogerPowerup.
+  async recogerPowerup(socketId, powerupId) {
+    let aplicado = null;
+
+    const { estado } = await this._actualizarEstado((estadoActual) => {
+      aplicado = recogerPowerup(estadoActual, socketId, powerupId);
+    });
+
+    if (!estado) return;
+
+    if (aplicado) {
+      this.logger.info({ event: 'powerup_recogido', salaId: this.salaId, socketId, tipo: aplicado.tipo });
+      this.io.to(this.salaId).emit('powerup_aplicado', {
+        jugadorId: socketId,
+        tipo: aplicado.tipo,
+        expira: aplicado.expira
+      });
+    }
+
+    this.io.to(this.salaId).emit('estado_juego', estado);
+  }
+
+  // Salvavidas de los poderes con duración: sin este barrido periódico,
+  // "flash"/"doublebomb"/"shield" quedarían activos para siempre si el
+  // jugador no genera ningún otro evento (mover/bomba) después de expirar.
+  iniciarTimerPoderes() {
+    this.detenerTimerPoderes();
+    this.timerPoderes = setInterval(async () => {
+      try {
+        let expirados = [];
+        const { estado } = await this._actualizarEstado((estadoActual) => {
+          expirados = revisarExpiracionPoderes(estadoActual);
+        });
+
+        if (!estado || expirados.length === 0) return;
+
+        expirados.forEach((exp) => this.io.to(this.salaId).emit('powerup_expirado', exp));
+        this.io.to(this.salaId).emit('estado_juego', estado);
+      } catch (err) {
+        this.logger.error({ event: 'poderes_timer_error', salaId: this.salaId, error: err.message });
+      }
+    }, PODERES_TIMER_INTERVALO_MS);
+  }
+
+  detenerTimerPoderes() {
+    if (this.timerPoderes) {
+      clearInterval(this.timerPoderes);
+      this.timerPoderes = null;
+    }
+  }
+
   destruirLocal() {
     this.timers.forEach((timer) => clearTimeout(timer));
     this.timers.clear();
+    this.detenerTimerPoderes();
   }
 }
 
