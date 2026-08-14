@@ -7,21 +7,28 @@ const MAX_JUGADORES = 4;
 const REDIS_READY_TIMEOUT_MS = 5000;
 const REDIS_RECONNECT_MAX_DELAY_MS = 5000;
 
-const client = createClient({
-  socket: {
-    host: redisHost,
-    port: 6379,
-    // Sin esto, un retries => new Error(...) (o cualquier valor no numérico)
-    // haría que el cliente se rinda para siempre tras la primera falla.
-    // Con backoff exponencial (tope 5s) sigue reintentando indefinidamente,
-    // así que una caída de Redis (reinicio, blip de red) se repara sola.
-    reconnectStrategy: (retries) => {
-      const delay = Math.min(retries * 200, REDIS_RECONNECT_MAX_DELAY_MS);
-      logger.warn({ event: 'redis_lobby_reintentando', intento: retries, esperaMs: delay });
-      return delay;
-    }
-  }
-});
+// Sin esto, un retries => new Error(...) (o cualquier valor no numérico)
+// haría que el cliente se rinda para siempre tras la primera falla.
+// Con backoff exponencial (tope 5s) sigue reintentando indefinidamente,
+// así que una caída de Redis (reinicio, blip de red) se repara sola.
+const redisReconnectStrategy = (retries) => {
+  const delay = Math.min(retries * 200, REDIS_RECONNECT_MAX_DELAY_MS);
+  logger.warn({ event: 'redis_lobby_reintentando', intento: retries, esperaMs: delay });
+  return delay;
+};
+
+const client = process.env.REDIS_URL
+  ? createClient({
+      url: process.env.REDIS_URL,
+      socket: { reconnectStrategy: redisReconnectStrategy }
+    })
+  : createClient({
+      socket: {
+        host: redisHost,
+        port: 6379,
+        reconnectStrategy: redisReconnectStrategy
+      }
+    });
 
 // Sin este listener, cualquier error de socket (Redis se reinicia, PM2
 // mata el proceso, se cae la red) se propaga como excepción no capturada

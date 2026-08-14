@@ -25,17 +25,24 @@ const REDIS_ADAPTER_RECONNECT_MAX_DELAY_MS = 5000;
 // exponencial (tope 5s) el pub/sub del adapter se repara solo si Redis
 // se reinicia o hay un blip de red — sin esto, ambas instancias EC2
 // quedarían des-sincronizadas hasta reiniciar el proceso a mano.
-const pubClient = createClient({
-  socket: {
-    host: redisHost,
-    port: 6379,
-    reconnectStrategy: (retries) => {
-      const delay = Math.min(retries * 200, REDIS_ADAPTER_RECONNECT_MAX_DELAY_MS);
-      logger.warn({ event: 'redis_adapter_reintentando', intento: retries, esperaMs: delay });
-      return delay;
-    }
-  }
-});
+const redisReconnectStrategy = (retries) => {
+  const delay = Math.min(retries * 200, REDIS_ADAPTER_RECONNECT_MAX_DELAY_MS);
+  logger.warn({ event: 'redis_adapter_reintentando', intento: retries, esperaMs: delay });
+  return delay;
+};
+
+const pubClient = process.env.REDIS_URL
+  ? createClient({
+      url: process.env.REDIS_URL,
+      socket: { reconnectStrategy: redisReconnectStrategy }
+    })
+  : createClient({
+      socket: {
+        host: redisHost,
+        port: 6379,
+        reconnectStrategy: redisReconnectStrategy
+      }
+    });
 const subClient = pubClient.duplicate(); // hereda el mismo reconnectStrategy
 
 // "SocketClosedUnexpectedlyError" llega por este evento: sin listener se
