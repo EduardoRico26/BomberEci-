@@ -1,11 +1,14 @@
 const pool = require('./index');
 
 // Crear usuario nuevo
+// Verificación por correo deshabilitada temporalmente para despliegue de prueba con amigos:
+// se inserta directamente con verificado = TRUE en vez de depender del valor por defecto
+// de la columna, para no bloquear el login a la espera de un correo que no se va a enviar.
 async function crearUsuario({ nombre, correo, passwordHash, tokenVerificacion }) {
   const result = await pool.query(
-    `INSERT INTO usuarios 
-     (nombre, correo, password_hash, token_verificacion)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO usuarios
+     (nombre, correo, password_hash, token_verificacion, verificado)
+     VALUES ($1, $2, $3, $4, TRUE)
      RETURNING id, nombre, correo, verificado, rol`,
     [nombre, correo, passwordHash, tokenVerificacion]
   );

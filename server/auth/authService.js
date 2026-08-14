@@ -351,8 +351,10 @@ async function registrar({ nombre, correo, password }) {
     tokenVerificacion
   });
 
-  // Enviar email de verificación
-  await enviarEmailVerificacion(correo, nombre, tokenVerificacion);
+  // Verificación por correo deshabilitada temporalmente para despliegue de prueba con amigos.
+  // El usuario ya se crea con verificado = true (ver usuariosDB.crearUsuario), así que no
+  // hace falta enviar el correo ni esperar a que el jugador lo confirme.
+  // await enviarEmailVerificacion(correo, nombre, tokenVerificacion);
 
   return usuario;
 }
@@ -380,10 +382,12 @@ async function login({ correo, password }) {
     throw errorGenerico;
   }
 
-  // Verificar si el correo fue verificado
-  if (!usuario.verificado) {
-    throw { status: 403, mensaje: 'Debes verificar tu correo antes de ingresar.' };
-  }
+  // Verificación por correo deshabilitada temporalmente para despliegue de prueba con amigos.
+  // Los usuarios ahora se crean con verificado = true, así que este chequeo ya no aplica
+  // en el flujo normal; se deja comentado por si se reactiva la verificación más adelante.
+  // if (!usuario.verificado) {
+  //   throw { status: 403, mensaje: 'Debes verificar tu correo antes de ingresar.' };
+  // }
 
   // Resetear intentos fallidos
   await db.resetearIntentos(correo);

@@ -45,8 +45,9 @@ router.post('/registro', registroLimiter, async (req, res) => {
     console.log('Usuario registrado, incrementando métrica...');
     metrics.jugadoresRegistrados.inc();
     console.log('Métrica incrementada correctamente');
+    // Verificación por correo deshabilitada temporalmente para despliegue de prueba con amigos.
     res.status(201).json({
-      mensaje: 'Cuenta creada. Revisa tu correo para verificarla.',
+      mensaje: 'Cuenta creada. ¡Ya puedes iniciar sesión!',
       usuario
     });
   } catch (err) {
